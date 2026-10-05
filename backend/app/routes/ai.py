@@ -46,6 +46,6 @@ def chat():
         return jsonify(error="The AI tutor is not configured yet. Please contact the lesson organizer."), 503
     try:
         reply = generate_reply(message, step_id, history)
-    except TutorUnavailable:
-        return jsonify(error="The AI tutor could not respond. Please try again shortly."), 502
+    except TutorUnavailable as error:
+        return jsonify(error=error.public_message, error_code=error.code), 502
     return jsonify(reply=reply)

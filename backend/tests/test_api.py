@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import httpx
+from google.genai import errors, types
 
 from app.main import create_app
 from app.services.tutor import TutorUnavailable, generate_reply
@@ -112,12 +113,55 @@ class ApiTests(unittest.TestCase):
     def test_sdk_empty_response_and_network_timeout_are_handled(self, client_class):
         client = client_class.return_value.__enter__.return_value
         with self.app.app_context():
-            client.models.generate_content.return_value = MagicMock(text=None)
-            with self.assertRaises(TutorUnavailable):
+            client.models.generate_content.return_value = types.GenerateContentResponse()
+            with self.assertRaises(TutorUnavailable) as empty:
                 generate_reply("Help", "setup-check", [])
+            self.assertEqual(empty.exception.code, "empty_response")
             client.models.generate_content.side_effect = httpx.ReadTimeout("provider timeout")
-            with self.assertRaises(TutorUnavailable):
+            with self.assertRaises(TutorUnavailable) as timeout:
                 generate_reply("Help", "setup-check", [])
+            self.assertEqual(timeout.exception.code, "provider_timeout")
+
+    @patch("app.services.tutor.genai.Client")
+    def test_provider_failures_are_classified_without_leaking_details(self, client_class):
+        client = client_class.return_value.__enter__.return_value
+        cases = [
+            (400, "API key not valid; secret-key and learner text", "authentication_failed"),
+            (400, "Unsupported parameter; secret-key and learner text", "invalid_provider_request"),
+            (401, "secret-key and learner text", "authentication_failed"),
+            (402, "secret-key and learner text", "billing_required"),
+            (403, "secret-key and learner text", "permission_denied"),
+            (404, "secret-key and learner text", "model_unavailable"),
+            (429, "secret-key and learner text", "quota_exceeded"),
+            (503, "secret-key and learner text", "provider_unavailable"),
+            (504, "secret-key and learner text", "provider_timeout"),
+        ]
+        for status, message, expected in cases:
+            with self.subTest(status=status, expected=expected):
+                client.models.generate_content.side_effect = errors.APIError(status, {"error": {"message": message}})
+                with self.assertLogs(self.app.logger, level="WARNING") as logs:
+                    response = self.client.post("/api/ai/chat", json=self.payload)
+                self.assertEqual(response.status_code, 502)
+                self.assertEqual(response.json["error_code"], expected)
+                self.assertIn(f"provider_http={status}", logs.output[0])
+                for text in [response.get_data(as_text=True), "\n".join(logs.output)]:
+                    self.assertNotIn("secret-key", text)
+                    self.assertNotIn("learner text", text)
+
+    @patch("app.services.tutor.genai.Client")
+    def test_generation_limit_and_safety_blocks_have_distinct_errors(self, client_class):
+        client = client_class.return_value.__enter__.return_value
+        cases = [
+            (types.GenerateContentResponse(candidates=[types.Candidate(finish_reason="MAX_TOKENS")]), "output_limit"),
+            (types.GenerateContentResponse(candidates=[types.Candidate(finish_reason="SAFETY")]), "response_blocked"),
+            (types.GenerateContentResponse(prompt_feedback=types.GenerateContentResponsePromptFeedback(block_reason="SAFETY")), "response_blocked"),
+        ]
+        for sdk_response, expected in cases:
+            with self.subTest(expected=expected):
+                client.models.generate_content.return_value = sdk_response
+                response = self.client.post("/api/ai/chat", json=self.payload)
+                self.assertEqual(response.status_code, 502)
+                self.assertEqual(response.json["error_code"], expected)
 
 
 if __name__ == "__main__":
