@@ -2,11 +2,19 @@
 name = "digital-education-backend"
 version = "0.1.0"
 description = "Backend scaffolding for CS-411 digital education lessons"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
-  "flask>=3.0.0",
+  "flask>=3.1,<4",
+  "flask-cors>=6,<7",
+  "flask-limiter[redis]>=4,<5",
+  "google-genai>=1.0,<2",
+  "gunicorn>=23,<24",
+  "python-dotenv>=1,<2",
 ]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

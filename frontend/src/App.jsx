@@ -1,28 +1,22 @@
+import { lazy, Suspense } from 'react'
 import { HashRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
 
-function LessonPage({ title, description }) {
-  return (
-    <main className="page">
-      <h1>{title}</h1>
-      <p>{description}</p>
-      <p className="note">Lesson content will be added in future issues.</p>
-    </main>
-  )
-}
+const AiLesson = lazy(() => import('./lessons/ai/AiLesson.jsx'))
+const ControlLesson = lazy(() => import('./lessons/control/ControlLesson.jsx'))
 
-function Navigation() {
+function SetupPage() {
   return (
-    <nav aria-label="Lesson navigation">
-      <ul>
-        <li>
-          <Link to="/lesson-ai">AI-assisted lesson</Link>
-        </li>
-        <li>
-          <Link to="/lesson-standard">Non-AI lesson</Link>
-        </li>
-      </ul>
-    </nav>
+    <main className="setup-page">
+      <p className="eyebrow">CS-411 · Digital education</p>
+      <h1>One topic.<br />Two ways to learn.</h1>
+      <p className="lead">Recursion, with a path toward memoization. Two lesson environments for exploring how support affects learning.</p>
+      <div className="setup-links">
+        <Link className="setup-card" to="/ai-lesson"><span className="eyebrow">Environment 01</span><h2>AI-assisted lesson <span aria-hidden="true">↗</span></h2><p>Ask a tutor for hints, explanations, and worked answers.</p></Link>
+        <Link className="setup-card" to="/control-lesson"><span className="eyebrow">Environment 02</span><h2>Control lesson <span aria-hidden="true">↗</span></h2><p>Reveal prepared hints and compare your answer with a correction.</p></Link>
+      </div>
+      <p className="muted">Organizer preview. Send participants the direct link to their assigned lesson.</p>
+    </main>
   )
 }
 
@@ -30,28 +24,16 @@ function App() {
   return (
     <HashRouter>
       <div className="app-shell">
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<Navigate to="/lesson-ai" replace />} />
-          <Route
-            path="/lesson-ai"
-            element={
-              <LessonPage
-                title="AI-Assisted Lesson"
-                description="Starter page for the lesson version that will include AI support."
-              />
-            }
-          />
-          <Route
-            path="/lesson-standard"
-            element={
-              <LessonPage
-                title="Non-AI Lesson"
-                description="Starter page for the lesson version without AI support."
-              />
-            }
-          />
-        </Routes>
+        <Suspense fallback={<main className="setup-page" role="status">Loading lesson…</main>}>
+          <Routes>
+            <Route path="/" element={<SetupPage />} />
+            <Route path="/ai-lesson" element={<AiLesson />} />
+            <Route path="/control-lesson" element={<ControlLesson />} />
+            <Route path="/lesson-ai" element={<Navigate to="/ai-lesson" replace />} />
+            <Route path="/lesson-standard" element={<Navigate to="/control-lesson" replace />} />
+            <Route path="*" element={<main className="setup-page"><h1>Lesson not found</h1><p>Check the link you received from the lesson organizer.</p></main>} />
+          </Routes>
+        </Suspense>
       </div>
     </HashRouter>
   )

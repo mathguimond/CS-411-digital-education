@@ -1,0 +1,2 @@
+# Heroku detects the Python application from this root-level file.
+-e ./backend

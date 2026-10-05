@@ -16,3 +16,11 @@ frontend/dist/
 
 # Python packaging
 *.egg-info/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.pytest_cache/
+playwright-report/
+test-results/

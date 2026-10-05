@@ -1,0 +1,26 @@
+{
+  "id": "recursion",
+  "version": "scaffold-v1",
+  "title": "Thinking recursively",
+  "description": "From smaller problems to smarter solutions.",
+  "outline": [
+    "Base cases and recursive steps",
+    "Tracing calls and the call stack",
+    "Repeated work and overlapping subproblems",
+    "Memoization and a first look at dynamic programming"
+  ],
+  "steps": [
+    {
+      "id": "setup-check",
+      "title": "A small starting point",
+      "description": "This practice question lets you try the learning tools. The full lesson will be added here next.",
+      "question": "What is the base case in this function, and why does it need one? Assume n is a non-negative integer.",
+      "code": "def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)",
+      "hints": [
+        "Look for the branch that returns without calling factorial again.",
+        "What happens when n reaches zero? Think about what would happen without that check."
+      ],
+      "solution": "The base case is n == 0, which returns 1. Each recursive call reduces n by one, so a non-negative integer eventually reaches zero. The base case stops the recursive calls; without it, calls would continue with negative values until Python raises a RecursionError."
+    }
+  ]
+}
