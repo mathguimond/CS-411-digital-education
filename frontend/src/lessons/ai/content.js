@@ -1,4 +1,5 @@
-import commonLesson from '../../../../shared/lesson.json'
+import aiLesson from '../../../../shared/ai-lesson.json'
 
-// AI-specific content changes belong here; shared edits affect both conditions.
-export const lesson = commonLesson
+// This curriculum is also loaded by Flask for server-owned tutor context.
+// The control lesson continues to use shared/lesson.json.
+export const lesson = aiLesson

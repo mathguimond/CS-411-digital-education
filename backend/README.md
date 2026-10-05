@@ -15,8 +15,9 @@ Production uses the root `Procfile`; the root `shared/` content folder is requir
 ```json
 {
   "condition": "ai",
-  "step_id": "setup-check",
+  "step_id": "ai-practice",
   "message": "Can I have a hint?",
+  "learner_context": "Optional current attempt, at most 6000 characters",
   "history": [
     { "role": "user", "content": "What is recursion?" },
     { "role": "assistant", "content": "A function solving smaller versions of its problem." }
@@ -28,6 +29,18 @@ Messages have at most 4,000 characters. History has at most 12 messages / 16,000
 characters, alternating user and assistant in complete turns. Requests have a
 32 KB limit. Gemini uses server-owned lesson context and a 20-second timeout with
 automatic retries disabled.
+
+The five AI activity IDs come from `shared/ai-lesson.json`: `ai-pretest`,
+`ai-introduction`, `ai-practice`, `ai-memoization`, and `ai-transfer`. The server
+chooses clarification-only, conceptual, or hints-only instructions from that
+curriculum; clients cannot send replacement system instructions. Assessment
+requests discard `learner_context` before contacting Gemini. Only messages/history
+and task wording are supplied. These prompt policies still need a live pilot;
+there is no authenticated server-side record of a participant's assessment phase.
+
+Python execution and correctness checks happen in the browser, not this API.
+Deploy the repository root, including **both** shared JSON curricula, whenever
+these activity IDs or tutor instructions change.
 
 Errors have an `error` field: 400 invalid input, 403 disallowed browser origin,
 413 oversized request, 429 rate limit, 502 provider failure, 503 missing config.

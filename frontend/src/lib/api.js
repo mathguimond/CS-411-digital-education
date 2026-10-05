@@ -1,13 +1,13 @@
 const baseUrl = (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 
-export async function askTutor({ message, history, stepId, signal }) {
+export async function askTutor({ message, history, stepId, signal, learnerContext }) {
   let response
   try {
     response = await fetch(`${baseUrl}/api/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal,
-      body: JSON.stringify({ condition: 'ai', step_id: stepId, message, history }),
+      body: JSON.stringify({ condition: 'ai', step_id: stepId, message, history, ...(learnerContext ? { learner_context: learnerContext } : {}) }),
     })
   } catch (error) {
     if (error.name === 'AbortError') throw error

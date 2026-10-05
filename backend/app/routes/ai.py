@@ -33,19 +33,22 @@ def validate_payload(payload):
         total += len(content)
     if len(history) % 2 or total > MAX_HISTORY_CHARS:
         raise ValueError("History must contain complete turns and at most 16000 characters.")
-    return message.strip(), step_id, history
+    learner_context = payload.get("learner_context", "")
+    if not isinstance(learner_context, str) or len(learner_context) > 6000:
+        raise ValueError("Learner context must contain at most 6000 characters.")
+    return message.strip(), step_id, history, learner_context
 
 
 @ai_routes.post("/chat")
 def chat():
     try:
-        message, step_id, history = validate_payload(request.get_json(silent=True))
+        message, step_id, history, learner_context = validate_payload(request.get_json(silent=True))
     except ValueError as error:
         return jsonify(error=str(error)), 400
     if not current_app.config["GEMINI_API_KEY"] or not current_app.config["GEMINI_MODEL"]:
         return jsonify(error="The AI tutor is not configured yet. Please contact the lesson organizer."), 503
     try:
-        reply = generate_reply(message, step_id, history)
+        reply = generate_reply(message, step_id, history, learner_context=learner_context)
     except TutorUnavailable as error:
         return jsonify(error=error.public_message, error_code=error.code), 502
     return jsonify(reply=reply)

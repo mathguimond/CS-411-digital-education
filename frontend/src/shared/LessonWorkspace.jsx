@@ -23,7 +23,7 @@ export default function LessonWorkspace({ condition, lesson, Support }) {
   return (
     <>
       <header className="lesson-header">
-        <span className="brand"><span className="brand-mark" aria-hidden="true">↳</span> RECURSION LAB</span>
+        <span className="brand"><span className="brand-mark" aria-hidden="true">↳</span> DYNAMIC LEARNING</span>
         <span className="condition-badge">{condition === 'ai' ? 'AI-assisted learning' : 'Independent learning'}</span>
       </header>
       <main>
