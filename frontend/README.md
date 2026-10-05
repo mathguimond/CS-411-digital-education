@@ -27,9 +27,10 @@ AI progress persists across refreshes in the current tab. Use a fresh tab for a
 new learner. JSON download includes answers, code, run results, and process
 metrics; chat text is excluded. There is no automatic upload of study results.
 
-The tutor stays available throughout. It offers only clarification during the
-pre-test/transfer, conceptual conversation during the introduction, and hints
-during practice. Transfer runs execute the student's code only; assessment checks
+The tutor is available during the introduction and algorithm practice, with
+conceptual conversation and hints respectively. It is absent during the pre-test
+and transfer assessment, and the API rejects help for those activity IDs.
+Transfer runs execute the student's code only; assessment checks
 are withheld until final submission. The organizer must review written reasoning.
 
 Deploy the updated backend alongside the frontend: it must recognize the new

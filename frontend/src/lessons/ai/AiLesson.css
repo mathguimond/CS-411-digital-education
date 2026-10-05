@@ -2,6 +2,8 @@
 .ai-lesson .lesson-intro { padding-top: 34px; }
 .ai-lesson .lesson-intro h1 { font-size: clamp(2.4rem, 5vw, 3.7rem); }
 .ai-lesson .workspace { grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr); }
+.ai-lesson .workspace.without-tutor { grid-template-columns: minmax(0, 1fr); }
+.ai-lesson .workspace.without-tutor .lesson-content { width: 100%; max-width: 860px; justify-self: center; }
 .ai-lesson .lesson-content { padding: 30px; }
 .ai-lesson .ai-support { position: sticky; top: 18px; max-height: calc(100dvh - 36px); overflow-y: auto; padding: 24px; }
 .ai-lesson input { font: inherit; accent-color: #315a46; }
@@ -9,11 +11,11 @@
 .ai-lesson .lesson-progress { margin: 8px 0 26px; }
 .ai-lesson .lesson-progress ol { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; list-style: none; padding: 0; margin: 0; }
 .ai-lesson .progress-part { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px; background: transparent; color: #576655; border-color: #d7dfd0; }
-.ai-lesson .progress-part small { display: block; font-weight: 400; font-size: .7rem; }
 .ai-lesson .progress-part:disabled { opacity: .65; }
 .ai-lesson .progress-part.current { background: #284e40; border-color: #284e40; color: white; opacity: 1; }
 .ai-lesson .progress-part.done { border-color: #a3b395; }
 .ai-lesson .progress-part:hover:not(:disabled):not(.current) { background: #e9efdf; }
+.ai-lesson .progress-part.current:hover:not(:disabled) { background: #193e30; }
 .ai-lesson .part-number { font-family: ui-monospace, monospace; font-size: .77rem; }
 .ai-lesson .part-kicker { color: #8c683c; }
 .ai-lesson .activity-lead { color: #586a5a; }
@@ -30,11 +32,14 @@
 .ai-lesson .pretest-question { border: 0; border-bottom: 1px solid #e2e6dc; padding: 20px 0; margin: 0; min-width: 0; }
 .ai-lesson .pretest-question legend { font-weight: 600; font-size: .95rem; padding: 0; white-space: pre-line; }
 .ai-lesson .pretest-question legend .eyebrow { display: block; color: #8c683c; margin-bottom: 6px; }
-.ai-lesson .pretest-option { display: flex; align-items: start; gap: 10px; font-weight: 400; font-size: .88rem; padding: 8px; border-radius: 7px; }
+.ai-lesson .pretest-option { display: flex; align-items: start; gap: 10px; font-weight: 400; font-size: .88rem; padding: 8px; border-radius: 7px; cursor: pointer; transition: background-color .15s; }
+.ai-lesson .pretest-option:hover:not(:has(input:disabled)) { background: #f1f5e9; }
+.ai-lesson .pretest-option:has(input:disabled) { cursor: default; }
 .ai-lesson .pretest-option:has(input:checked) { background: #edf2e5; }
 .ai-lesson .pretest-option input { margin-top: 6px; flex-shrink: 0; }
 .ai-lesson .problem-choices { display: grid; gap: 10px; }
-.ai-lesson .problem-choice { display: flex; gap: 12px; align-items: start; padding: 15px; border: 1px solid #d7dfd0; border-radius: 9px; cursor: pointer; font-weight: 400; }
+.ai-lesson .problem-choice { display: flex; gap: 12px; align-items: start; padding: 15px; border: 1px solid #d7dfd0; border-radius: 9px; cursor: pointer; font-weight: 400; transition: background-color .15s, border-color .15s, box-shadow .15s; }
+.ai-lesson .problem-choice:hover { background: #eaf0e0; border-color: #90a078; box-shadow: 0 2px 6px #203b3210; }
 .ai-lesson .problem-choice input { flex-shrink: 0; margin-top: 6px; }
 .ai-lesson .problem-choice span span { display: block; color: #667468; font-size: .85rem; margin-top: 4px; }
 .ai-lesson .problem-choice.selected { background: #f0f4e9; border-color: #90a078; }
@@ -64,6 +69,7 @@
 .ai-lesson .tree-edge.visited { stroke: #9aaf8a; }
 .ai-lesson .tree-node { cursor: pointer; }
 .ai-lesson .tree-node rect { fill: #fff; stroke: #cbd6c0; stroke-width: 1.5; transition: fill .2s; }
+.ai-lesson .tree-node:hover rect { filter: drop-shadow(0 2px 3px #315a4640); }
 .ai-lesson .tree-node text { fill: #596d51; font: 12px ui-monospace, monospace; pointer-events: none; }
 .ai-lesson .tree-node.visited rect { fill: #edf2e4; }
 .ai-lesson .tree-node.returned rect { fill: #dbe8cf; stroke: #91aa7b; }
@@ -102,7 +108,8 @@
 .ai-lesson .comparison-stats strong { display: block; font-size: 1.8rem; font-weight: 600; }
 .ai-lesson .comparison-stats span { display: block; font-size: .73rem; color: #667468; }
 .ai-lesson .concept-recap { background: #f8f9f4; border: 1px solid #e0e5d8; padding: 16px; border-radius: 8px; margin: 22px 0; font-size: .85rem; }
-.ai-lesson .concept-recap summary { cursor: pointer; font-weight: 600; }
+.ai-lesson .concept-recap summary { cursor: pointer; font-weight: 600; border-radius: 5px; padding: 6px; margin: -6px; }
+.ai-lesson .concept-recap summary:hover { background: #eaf0e0; }
 .ai-lesson .concept-recap p { margin-top: 14px; }
 .ai-lesson .concept-recap p:last-child { margin-bottom: 0; }
 .ai-lesson .part-actions { margin-top: 30px; padding-top: 24px; border-top: 1px solid #dce3d3; }
@@ -137,7 +144,6 @@
   .ai-lesson .comparison-stats { gap: 6px; }
   .ai-lesson .comparison-stats > div { padding: 10px; }
   .ai-lesson .comparison-stats strong { font-size: 1.5rem; }
-  .ai-lesson .progress-part small { font-size: .62rem; }
   .ai-lesson .code-actions { align-items: start; flex-direction: column; gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -45,6 +45,8 @@ def chat():
         message, step_id, history, learner_context = validate_payload(request.get_json(silent=True))
     except ValueError as error:
         return jsonify(error=str(error)), 400
+    if load_step(step_id).get("ai_allowed") is False:
+        return jsonify(error="AI support is disabled during assessments.", error_code="ai_disabled"), 403
     if not current_app.config["GEMINI_API_KEY"] or not current_app.config["GEMINI_MODEL"]:
         return jsonify(error="The AI tutor is not configured yet. Please contact the lesson organizer."), 503
     try:

@@ -32,17 +32,18 @@ automatic retries disabled.
 
 The five AI activity IDs come from `shared/ai-lesson.json`: `ai-pretest`,
 `ai-introduction`, `ai-practice`, `ai-memoization`, and `ai-transfer`. The server
-chooses clarification-only, conceptual, or hints-only instructions from that
-curriculum; clients cannot send replacement system instructions. Assessment
-requests discard `learner_context` before contacting Gemini. Only messages/history
-and task wording are supplied. These prompt policies still need a live pilot;
+rejects assessment help with HTTP 403 and `error_code: "ai_disabled"` when a part
+has `ai_allowed: false`. This applies to both `ai-pretest` and `ai-transfer`; no
+Gemini request is made. The introduction and algorithm practice remain available,
+with conceptual or hints-only instructions selected from the curriculum.
+Clients cannot send replacement system instructions. These practice prompt policies still need a live pilot;
 there is no authenticated server-side record of a participant's assessment phase.
 
 Python execution and correctness checks happen in the browser, not this API.
 Deploy the repository root, including **both** shared JSON curricula, whenever
 these activity IDs or tutor instructions change.
 
-Errors have an `error` field: 400 invalid input, 403 disallowed browser origin,
+Errors have an `error` field: 400 invalid input, 403 disallowed browser origin or assessment help,
 413 oversized request, 429 rate limit, 502 provider failure, 503 missing config.
 Provider failures also include a safe `error_code`, such as `model_unavailable`,
 `authentication_failed`, `quota_exceeded`, or `provider_timeout`. Heroku logs show

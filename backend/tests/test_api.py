@@ -5,7 +5,7 @@ import httpx
 from google.genai import errors, types
 
 from app.main import create_app
-from app.services.tutor import TutorUnavailable, generate_reply
+from app.services.tutor import TutorDisabled, TutorUnavailable, generate_reply
 
 
 class ApiTests(unittest.TestCase):
@@ -97,18 +97,23 @@ class ApiTests(unittest.TestCase):
         self.assertIn("error", response.json)
         self.assertEqual(tutor.call_count, 1)
 
+    @patch("app.routes.ai.generate_reply")
+    def test_assessments_reject_help_without_calling_the_tutor(self, tutor):
+        for step_id in ["ai-pretest", "ai-transfer"]:
+            with self.subTest(step_id=step_id):
+                response = self.client.post("/api/ai/chat", json={**self.payload, "step_id": step_id, "learner_context": "private draft code"})
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.json["error_code"], "ai_disabled")
+                self.assertNotIn("private draft code", response.get_data(as_text=True))
+        tutor.assert_not_called()
+
     @patch("app.services.tutor.genai.Client")
-    def test_assessments_discard_context_and_receive_clarification_policy(self, client_class):
-        client = client_class.return_value.__enter__.return_value
-        client.models.generate_content.return_value = MagicMock(text="Use the submission button.")
+    def test_assessment_service_cannot_contact_gemini_directly(self, client_class):
         for step_id in ["ai-pretest", "ai-transfer"]:
             with self.subTest(step_id=step_id), self.app.app_context():
-                generate_reply("Where do I submit?", step_id, [], learner_context="private draft code")
-                arguments = client.models.generate_content.call_args.kwargs
-                self.assertEqual(arguments["contents"][-1].parts[0].text, "Where do I submit?")
-                self.assertIn("UNASSISTED assessment", arguments["config"].system_instruction)
-                self.assertIn("Do NOT give algorithm hints", arguments["config"].system_instruction)
-                self.assertNotIn("private draft code", arguments["config"].system_instruction)
+                with self.assertRaises(TutorDisabled):
+                    generate_reply("Where do I submit?", step_id, [], learner_context="private draft code")
+        client_class.assert_not_called()
 
     @patch("app.services.tutor.genai.Client")
     def test_practice_uses_server_policy_and_learner_attempt(self, client_class):
@@ -123,12 +128,12 @@ class ApiTests(unittest.TestCase):
                 self.assertNotIn("explicitly request a correct answer", arguments["config"].system_instruction)
 
     @patch("app.routes.ai.generate_reply", return_value="Clarify the wording.")
-    def test_new_lesson_parts_are_accepted_by_endpoint(self, tutor):
-        for step_id in ["ai-pretest", "ai-introduction", "ai-practice", "ai-memoization", "ai-transfer"]:
+    def test_teaching_and_algorithm_practice_parts_allow_tutor_help(self, tutor):
+        for step_id in ["ai-introduction", "ai-practice", "ai-memoization"]:
             with self.subTest(step_id=step_id):
                 response = self.client.post("/api/ai/chat", json={**self.payload, "step_id": step_id})
                 self.assertEqual(response.status_code, 200)
-        self.assertEqual(tutor.call_count, 5)
+        self.assertEqual(tutor.call_count, 3)
 
     @patch("app.services.tutor.genai.Client")
     def test_sdk_receives_server_context_and_correct_roles(self, client_class):

@@ -43,6 +43,10 @@ class TutorUnavailable(Exception):
         super().__init__(self.public_message)
 
 
+class TutorDisabled(Exception):
+    """An assessment cannot request any Gemini support."""
+
+
 def provider_error_code(error):
     # Inspect provider details only to classify them; never return/log raw text.
     if error.code == 400:
@@ -121,6 +125,8 @@ introduction. Do not discuss the learner's pre-test score or reveal its answers.
 
 def generate_reply(message, step_id, history, learner_context=""):
     step = load_step(step_id)
+    if step.get("ai_allowed") is False:
+        raise TutorDisabled("AI support is disabled during assessments.")
     contents = [
         types.Content(
             role="model" if entry["role"] == "assistant" else "user",

@@ -21,7 +21,7 @@ test('study outcomes distinguish code errors, unoptimized runs, and assessment r
     { type: 'code_run_finished', activity: 'memoization', mode: 'test', result: { passed: true } },
     { type: 'code_run_finished', activity: 'transfer', mode: 'run', result: { passed: true } },
     { type: 'chat_requested', supportMode: 'hints' },
-    { type: 'chat_requested', supportMode: 'clarifications' },
+    { type: 'chat_requested', supportMode: 'concept' },
   ]
   assert.equal(studyMetrics(session).unsuccessfulMemoizationRuns, 1)
   assert.equal(studyMetrics(session).transferCodeRuns, 1)

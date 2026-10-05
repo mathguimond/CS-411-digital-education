@@ -134,13 +134,14 @@ The five parts follow the proposal and the team's clarified choices:
 
 | Part | Target time | Activity | Tutor support |
 | --- | --- | --- | --- |
-| Pre-test | 3 min | Four drafted diagnostic questions; answers lock on submission | Instructions/interface only |
+| Pre-test | 3 min | Four drafted diagnostic questions; answers lock on submission | Disabled |
 | Discover | 5 min | Animated nesting dolls, waiting calls, returns, own explanation | Conversation with check-in questions |
 | Build & trace | 8 min | Suitability comparison, recursive Fibonacci, predict and trace fib(4) | Hints only |
 | Optimize | 7 min | Identify repeated inputs, dictionary memoization, cache animation, explain complexity | Hints only |
-| Transfer | 7 min | Independent Climbing Stairs code and design explanation | Instructions/interface only |
+| Transfer | 7 min | Independent Climbing Stairs code and design explanation | Disabled |
 
-There is no countdown. Students may revisit submitted practice parts until they
+Section time estimates are internal design targets and are not displayed in the
+lesson navigation. There is no countdown. Students may revisit submitted practice parts until they
 start transfer, but cannot reopen the pre-test. During transfer, earlier practice
 and its conversations are inaccessible. Their own Python code can run, including
 their chosen print statements; generated correctness tests run only on final
@@ -152,9 +153,11 @@ Python executes in a module Web Worker using
 The first run downloads the runtime from jsDelivr, so it requires internet access.
 Execution is stopped after eight seconds; output and test function-call counts
 are bounded. No learner code executes on Flask. When a student asks for practice
-help, their current attempt is sent to Gemini with the message. Assessment drafts
-are excluded from automatic tutor context. Tutor restrictions are server-owned
-prompt policies; pilot-check live replies, especially requests for full solutions.
+help, their current attempt is sent to Gemini with the message. The tutor is
+removed during the pre-test and transfer assessment, including its mobile button,
+and the backend rejects chat requests for these steps without contacting Gemini.
+Hints-only practice uses server-owned prompt policies; pilot-check live replies,
+especially requests for full solutions.
 
 The pilot is not a tamper-resistant assessment: browser state and tests can be
 inspected, and there is no authenticated assignment or server-side assessment
@@ -164,7 +167,8 @@ state. Call counts are a useful check for repeated work, not a proof of complexi
 
 - Edit AI tasks/context in `shared/ai-lesson.json` and activity components under
   `frontend/src/lessons/ai/activities/`. Animations, Python execution, and study
-  state have their own folders. Tune the tutor in `backend/app/services/tutor.py`.
+  state have their own folders. `ai_allowed: false` disables tutor UI and API help
+  for an assessment part. Tune the tutor in `backend/app/services/tutor.py`.
   Restart Flask after content edits and deploy **both services** for this lesson
   update: the new activity IDs must be available to the backend.
 - Build the control lesson in `frontend/src/lessons/control/` and

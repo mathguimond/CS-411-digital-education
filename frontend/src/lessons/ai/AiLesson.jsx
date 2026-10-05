@@ -11,7 +11,6 @@ import { canVisitPart, scorePretest, studyMetrics } from './study/lessonState.js
 import usePython from './python/usePython.js'
 import './AiLesson.css'
 
-const MINUTES = [3, 5, 8, 7, 7]
 const REQUIRED = [[], ['doll-explanation'], ['suitability', 'suitability-reason', 'fib-recurrence', 'fib-prediction', 'stack-prediction', 'trace-explanation'], ['repeated-count', 'redundancy-explanation', 'complexity-explanation'], ['transfer-recurrence', 'transfer-cache', 'transfer-complexity']]
 
 function AssessmentResults({ session, download }) {
@@ -43,13 +42,14 @@ export default function AiLesson() {
   const lastPart = useRef(null)
   const index = session.partIndex
   const part = lesson.parts[index]
+  const tutorAllowed = part.ai_allowed !== false
   const busy = editorBusy || python.busy
   const complete = session.transferSubmitted
   const fieldsComplete = index === 0 ? lesson.pretest.every((question) => Number.isInteger(session.answers[question.id])) : REQUIRED[index].every((id) => String(session.answers[id] ?? '').trim())
   const activity = index === 2 ? 'fibonacci' : index === 3 ? 'memoization' : 'transfer'
   const practiceRun = index < 2 || index > 3 || session.events.some((event) => event.type === 'code_run_started' && event.activity === activity)
   const ready = fieldsComplete && practiceRun
-  const learnerContext = part.support_mode === 'clarifications' ? '' : JSON.stringify({ baseline: session.baseline, code: index >= 2 ? session.code[activity].slice(0, 3500) : undefined, answers: Object.fromEntries(REQUIRED[index].map((id) => [id, String(session.answers[id] ?? '').slice(0, 350)])) }).slice(0, 6000)
+  const learnerContext = !tutorAllowed ? '' : JSON.stringify({ baseline: session.baseline, code: index >= 2 ? session.code[activity].slice(0, 3500) : undefined, answers: Object.fromEntries(REQUIRED[index].map((id) => [id, String(session.answers[id] ?? '').slice(0, 350)])) }).slice(0, 6000)
 
   useEffect(() => {
     if (lastPart.current === part.id) return
@@ -98,8 +98,8 @@ export default function AiLesson() {
   return <main className="ai-lesson">
     <header className="lesson-header"><div className="brand"><span className="brand-mark" aria-hidden="true">↳</span>DYNAMIC LEARNING</div><span className="condition-badge">AI-assisted lesson · About 30 minutes</span></header>
     <div className="lesson-intro"><p className="eyebrow">Recursion → Memoization</p><h1>Thinking <span className="accent">recursively.</span></h1><p className="lead">Recognize the pattern. Build the solution. Make it faster.</p></div>
-    <nav className="lesson-progress" aria-label="Lesson parts"><ol>{lesson.parts.map((item, position) => <li key={item.id}><button className={`progress-part ${position === index ? 'current' : ''} ${session.completedParts.includes(position) ? 'done' : ''}`} aria-current={position === index ? 'step' : undefined} disabled={busy || complete || !canVisitPart(session, position)} onClick={() => visit(position)}><span className="part-number">{session.completedParts.includes(position) ? '✓' : `0${position + 1}`}</span><span>{item.label}<small>~{MINUTES[position]} min</small></span></button></li>)}</ol></nav>
-    <div className="workspace">
+    <nav className="lesson-progress" aria-label="Lesson parts"><ol>{lesson.parts.map((item, position) => <li key={item.id}><button className={`progress-part ${position === index ? 'current' : ''} ${session.completedParts.includes(position) ? 'done' : ''}`} aria-current={position === index ? 'step' : undefined} disabled={busy || complete || !canVisitPart(session, position)} onClick={() => visit(position)}><span className="part-number">{session.completedParts.includes(position) ? '✓' : `0${position + 1}`}</span><span>{item.label}</span></button></li>)}</ol></nav>
+    <div className={`workspace ${tutorAllowed ? '' : 'without-tutor'}`}>
       <section className="lesson-content" aria-labelledby="part-heading">
         {complete ? <AssessmentResults session={session} download={download} /> : <>
           <p className="eyebrow part-kicker">Part {index + 1} of 5 · {part.label}</p><h2 id="part-heading" tabIndex={-1} ref={heading}>{part.title}</h2>
@@ -116,9 +116,9 @@ export default function AiLesson() {
           {submissionError && <p className="error-message" role="alert">{submissionError}</p>}
         </>}
       </section>
-      <aside id="lesson-tutor" className={`support-panel ai-support ${mobileTutor ? 'mobile-open' : ''}`} aria-label="AI tutor"><button className="secondary mobile-tutor-close" onClick={() => setMobileTutor(false)}>Close tutor</button><AiTutor key={part.id} step={part} record={record} learnerContext={learnerContext} conversation={session.conversations?.[part.id] || []} onConversationChange={(messages) => setSession((value) => ({ ...value, conversations: { ...value.conversations, [part.id]: messages } }))} /></aside>
+      {tutorAllowed && <aside id="lesson-tutor" className={`support-panel ai-support ${mobileTutor ? 'mobile-open' : ''}`} aria-label="AI tutor"><button className="secondary mobile-tutor-close" onClick={() => setMobileTutor(false)}>Close tutor</button><AiTutor key={part.id} step={part} record={record} learnerContext={learnerContext} conversation={session.conversations?.[part.id] || []} onConversationChange={(messages) => setSession((value) => ({ ...value, conversations: { ...value.conversations, [part.id]: messages } }))} /></aside>}
     </div>
-    <button className="mobile-tutor-toggle" aria-controls="lesson-tutor" aria-expanded={mobileTutor} onClick={() => setMobileTutor((value) => !value)}>{mobileTutor ? 'Close tutor' : index === 0 || index === 4 ? 'Clarify the task ↗' : 'Ask the tutor ↗'}</button>
+    {tutorAllowed && <button className="mobile-tutor-toggle" aria-controls="lesson-tutor" aria-expanded={mobileTutor} onClick={() => setMobileTutor((value) => !value)}>{mobileTutor ? 'Close tutor' : 'Ask the tutor ↗'}</button>}
     <footer className="lesson-footer"><p>Progress is saved in this browser tab. Python runs in your browser.</p><button className="text-button" onClick={download}>Download session record ↓</button></footer>
   </main>
 }
