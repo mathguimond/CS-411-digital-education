@@ -7,13 +7,13 @@ export const STARTER_CODE = {
   transfer: 'def unique_paths(rows, cols):\n    pass\n',
 }
 
-export function createLessonSession(version) {
+export function createLessonSession(version, condition = 'ai', supportVersion = null) {
   return {
-    schemaVersion: 3, sessionId: crypto.randomUUID(), condition: 'ai', lessonVersion: version,
+    schemaVersion: 3, sessionId: crypto.randomUUID(), condition, lessonVersion: version, supportVersion,
     startedAt: new Date().toISOString(), partIndex: 0, completedParts: [],
     activityIndexByPart: {}, completedActivities: [], hintUnlockedActivities: [],
     answers: {}, code: { ...STARTER_CODE }, trees: { stairs: createCallTree('stairs'), grid: createCallTree('grid') },
-    chatHistory: [], lastResults: {}, events: [], activeMsByPart: {}, activeMsByActivity: {}, activeMsByEditor: {},
+    chatHistory: [], fixedSupport: {}, lastResults: {}, events: [], activeMsByPart: {}, activeMsByActivity: {}, activeMsByEditor: {},
     pretestSubmitted: false, transferStarted: false, transferSubmitted: false,
     baseline: null, cohortFlags: {}, assessment: null,
   }
@@ -37,23 +37,6 @@ export function cohortFlags(questions, answers) {
     possiblePriorMastery: baseline.score === baseline.total && answers['memo-experience'] === 2 }
 }
 
-export function learnerContext(session, activity) {
-  const relevantCode = activity.code || (activity.id === 'stairs-trace' || activity.id === 'stairs-redundancy' ? 'stairs' : null)
-  const tree = activity.tree || (activity.id.startsWith('stairs-') ? 'stairs' : null)
-  const lastRun = relevantCode ? session.lastResults[relevantCode] : null
-  const failedTests = lastRun?.tests?.filter((test) => !test.passed) || []
-  // Bound fields individually so truncation never produces invalid JSON.
-  const context = { baseline: session.baseline, activity: { id: activity.id, title: activity.title },
-    answers: Object.fromEntries(activity.fields.map((id) => [id, String(session.answers[id] ?? '').slice(0, 350)])),
-    code: relevantCode ? session.code[relevantCode].slice(0, 2400) : undefined,
-    tree: tree ? session.trees[tree].nodes.slice(0, 40).map(({ id, parentId, args, value }) => ({ id: id === 'root' ? 'root' : session.trees[tree].nodes.findIndex((node) => node.id === id), parent: parentId === 'root' ? 'root' : session.trees[tree].nodes.findIndex((node) => node.id === parentId), args: args.map((arg) => String(arg).slice(0, 24)), value: String(value).slice(0, 24) })) : undefined,
-    lastRun: lastRun ? { passed: lastRun.passed, analysis: lastRun.analysis, efficiency: lastRun.efficiency, error: lastRun.error?.slice(0, 300), codeChangedSinceRun: lastRun.codeChangedSinceRun, tests: (failedTests.length ? failedTests : lastRun.tests || []).slice(0, 3).map(({ input, expected, actual, passed, error }) => ({ input, expected, actual: typeof actual === 'string' ? actual.slice(0, 100) : actual, passed, error: error?.slice(0, 150) })), output: lastRun.output?.slice(0, 200) } : undefined,
-  }
-  let encoded = JSON.stringify(context)
-  while (encoded.length > 6000 && context.tree?.length > 1) { context.tree.pop(); encoded = JSON.stringify(context) }
-  while (encoded.length > 6000 && context.code?.length) { context.code = context.code.slice(0, Math.floor(context.code.length / 2)); encoded = JSON.stringify(context) }
-  return encoded
-}
 
 export function studyMetrics(session) {
   const events = session.events
@@ -63,17 +46,19 @@ export function studyMetrics(session) {
   const timeline = {}
   for (const event of events) {
     if (!event.activityId) continue
-    const item = timeline[event.activityId] ||= { firstRunMs: null, firstSuccessMs: null, submissions: 0, hintRequests: 0, followUpTurns: 0, responseEdits: 0, codeEdits: 0, feedbackToEditMs: [] }
+    const item = timeline[event.activityId] ||= { firstRunMs: null, firstSuccessMs: null, submissions: 0, hintRequests: 0, fixedHintsOpened: 0, fallbackDisplayed: false, followUpTurns: 0, responseEdits: 0, codeEdits: 0, feedbackToEditMs: [] }
     const time = Date.parse(event.timestamp)
     if (event.type === 'activity_entered') item.enteredAt ??= time
     if (event.type === 'code_run_started' && item.firstRunMs === null && item.enteredAt) item.firstRunMs = time - item.enteredAt
     if (event.type === 'code_run_finished' && event.mode === 'test' && event.result.passed && item.firstSuccessMs === null && item.enteredAt) item.firstSuccessMs = time - item.enteredAt
     if (event.type === 'activity_submitted') item.submissions++
+    if (event.type === 'hint_revealed') { item.hintRequests++; item.fixedHintsOpened++ }
+    if (event.type === 'solution_revealed') item.fallbackDisplayed = true
     if (event.type === 'chat_requested') {
       if (event.requestKind === 'hint') item.hintRequests++
       else item.followUpTurns++
     }
-    if (['chat_answered', 'code_run_finished', 'tree_checked'].includes(event.type)) item.lastFeedbackAt = time
+    if (['chat_answered', 'hint_revealed', 'solution_revealed', 'code_run_finished', 'tree_checked'].includes(event.type)) item.lastFeedbackAt = time
     if (['response_edited', 'code_edited', 'tree_node_edited', 'tree_child_added'].includes(event.type)) {
       if (event.type === 'response_edited') item.responseEdits++
       if (event.type === 'code_edited') item.codeEdits++
@@ -92,7 +77,9 @@ export function studyMetrics(session) {
     failedAssertions: runs.reduce((sum, event) => sum + (event.result.tests || []).filter((test) => !test.passed && !test.error).length, 0),
     runtimeExceptions: runs.filter((event) => event.result.error && !event.result.error.startsWith('SyntaxError') || event.result.tests?.some((test) => test.error)).length,
     interruptedRuns: events.filter((event) => event.type === 'code_run_failed').length,
-    hintRequests: events.filter((event) => event.type === 'chat_requested' && event.requestKind === 'hint').length,
+    hintRequests: events.filter((event) => event.type === 'chat_requested' && event.requestKind === 'hint' || event.type === 'hint_revealed').length,
+    fixedHintsOpened: events.filter((event) => event.type === 'hint_revealed').length,
+    fallbackSolutionsDisplayed: events.filter((event) => event.type === 'solution_revealed').length,
     aiInteractionTurns: events.filter((event) => event.type === 'chat_answered').length,
     transferCodeRuns: runs.filter((event) => event.activity === 'transfer').length,
   }

@@ -30,7 +30,7 @@ characters, alternating user and assistant in complete turns. Requests have a
 32 KB limit. Gemini uses server-owned lesson context and a 20-second timeout with
 automatic retries disabled.
 
-The five AI activity IDs come from `shared/ai-lesson.json`: `ai-pretest`,
+The five API part IDs come from the common `shared/recursion-lesson.json`: `ai-pretest`,
 `ai-introduction`, `ai-practice`, `ai-memoization`, and `ai-transfer`. The server
 rejects assessment help with HTTP 403 and `error_code: "ai_disabled"` when a part
 has `ai_allowed: false`. This applies to both `ai-pretest` and `ai-transfer`; no
@@ -40,8 +40,10 @@ Clients cannot send replacement system instructions. These practice prompt polic
 there is no authenticated server-side record of a participant's assessment phase.
 
 Python execution and correctness checks happen in the browser, not this API.
-Deploy the repository root, including **both** shared JSON curricula, whenever
-these activity IDs or tutor instructions change.
+Deploy the repository root, including `shared/recursion-lesson.json` and the legacy
+`shared/lesson.json` API setup content, whenever part IDs or tutor context changes.
+Control hints are loaded only by the frontend from `shared/control-support.json`;
+control lessons never call this API.
 
 Errors have an `error` field: 400 invalid input, 403 disallowed browser origin or assessment help,
 413 oversized request, 429 rate limit, 502 provider failure, 503 missing config.

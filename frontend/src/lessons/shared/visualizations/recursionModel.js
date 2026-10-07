@@ -1,4 +1,4 @@
-export function fibonacciTrace(n, { memoized = false } = {}) {
+function branchingTrace(n, { memoized = false } = {}, baseValues) {
   if (!Number.isInteger(n) || n < 0 || n > 8) {
     throw new RangeError('Choose a whole number from 0 to 8.')
   }
@@ -30,7 +30,7 @@ export function fibonacciTrace(n, { memoized = false } = {}) {
       cacheHits += 1
       snapshot('cache_hit', node, value)
     } else if (input < 2) {
-      value = input
+      value = baseValues[input]
       snapshot('base', node, value)
     } else {
       const left = visit(input - 1, node.id, 'left')
@@ -53,6 +53,9 @@ export function fibonacciTrace(n, { memoized = false } = {}) {
   return { nodes, events, result: value, calls: nodes.length, counts, cacheHits, maxStackDepth: Math.max(...events.map((event) => event.stack.length)) }
 }
 
+export function fibonacciTrace(n, options) { return branchingTrace(n, options, [0, 1]) }
+export function stairsTrace(n, options) { return branchingTrace(n, options, [1, 1]) }
+
 export function treeLayout(nodes) {
   const positions = {}
   const nodeMap = new Map(nodes.map((node) => [node.id, node]))
@@ -71,14 +74,14 @@ export function treeLayout(nodes) {
   return { positions, width: Math.max(240, leafIndex * 80 + 10), height: Math.max(...nodes.map((node) => node.depth)) * 92 + 88 }
 }
 
-export function describeTraceEvent(event) {
+export function describeTraceEvent(event, functionName = 'fib') {
   switch (event.type) {
-    case 'enter': return `Call fib(${event.n}). Add a frame to the stack.`
-    case 'base': return `Base case: fib(${event.n}) returns ${event.value}. No smaller call is needed.`
-    case 'combine': return `Both smaller calls have returned. Add their results: fib(${event.n}) = ${event.value}.`
+    case 'enter': return `Call ${functionName}(${event.n}). Add a frame to the stack.`
+    case 'base': return `Base case: ${functionName}(${event.n}) returns ${event.value}. No smaller call is needed.`
+    case 'combine': return `Both smaller calls have returned. Add their results: ${functionName}(${event.n}) = ${event.value}.`
     case 'cache_store': return `Save cache[${event.n}] = ${event.value} so the result can be reused.`
-    case 'cache_hit': return `Cache hit: fib(${event.n}) is already ${event.value}. Reuse it without expanding another branch.`
-    case 'return': return `Return ${event.value} from fib(${event.n}) and remove this frame from the stack.`
+    case 'cache_hit': return `Cache hit: ${functionName}(${event.n}) is already ${event.value}. Reuse it without expanding another branch.`
+    case 'return': return `Return ${event.value} from ${functionName}(${event.n}) and remove this frame from the stack.`
     default: return ''
   }
 }

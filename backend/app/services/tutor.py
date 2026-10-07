@@ -9,8 +9,8 @@ from google.genai import errors, types
 LESSON_PATH = Path(__file__).resolve().parents[3] / "shared" / "lesson.json"
 LESSON = json.loads(LESSON_PATH.read_text(encoding="utf-8"))
 STEPS = {step["id"]: step for step in LESSON["steps"]}
-AI_LESSON = json.loads((LESSON_PATH.parent / "ai-lesson.json").read_text(encoding="utf-8"))
-STEPS.update({part["id"]: part for part in AI_LESSON["parts"]})
+CURRICULUM = json.loads((LESSON_PATH.parent / "recursion-lesson.json").read_text(encoding="utf-8"))
+STEPS.update({part["id"]: part for part in CURRICULUM["parts"]})
 SYSTEM_INSTRUCTION = """You are a patient tutor for a lesson on recursion, leading
 toward memoization and dynamic programming. Keep explanations concise and match
 the learner's level. Start with a hint when the learner asks for help. If they

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addChild, assessCallTree, createCallTree, removeBranch, treeIsFilled, updateNode } from '../src/lessons/ai/visualizations/treeModel.js'
+import { addChild, assessCallTree, createCallTree, removeBranch, treeIsFilled, updateNode } from '../src/lessons/shared/visualizations/treeModel.js'
 
 function completeTree(kind, expandedBases = false) {
   let tree = createCallTree(kind)

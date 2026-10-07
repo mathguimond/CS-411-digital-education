@@ -1,4 +1,4 @@
-import commonLesson from '../../../../shared/lesson.json'
+import fixedSupport from '../../../../shared/control-support.json'
 
-// Control-specific content changes belong here; shared edits affect both conditions.
-export const lesson = commonLesson
+// This file owns only control hints and corrections; activities use the shared curriculum.
+export const support = fixedSupport

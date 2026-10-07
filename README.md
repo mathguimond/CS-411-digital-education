@@ -1,31 +1,31 @@
 # Dynamic Learning · CS-411 Digital Education
 
-An initial 30-minute AI-assisted lesson on recursion and memoization, based on
-the team's Digital Education project proposal. The control route retains its
-original sample activity, ready for the other lesson team to develop.
+Matched 30-minute lessons on recursion and memoization, based on the team's
+Digital Education project proposal. Both groups use the same curriculum,
+activities, animations, code editor, and assessments; their hint systems differ.
 
 ## Architecture and task ownership
 
 ```text
 GitHub Pages: React / Vite
   #/ai-lesson      -> POST /api/ai/chat -> Heroku: Flask -> Gemini
-  #/control-lesson -> local fixed hints and worked answers
+  #/control-lesson -> the same activities, local fixed hints and worked answers
 
-shared/ai-lesson.json            AI curriculum, baseline questions, tutor context
-shared/lesson.json               original control/sample curriculum
-frontend/src/lessons/ai/         activities, animations, Python runner, tutor, records
-frontend/src/lessons/control/    control page, fixed support, and content entry point
-frontend/src/shared/             lesson layout and session event hooks
+shared/recursion-lesson.json     common curriculum, baseline questions, tutor context
+shared/control-support.json     control-only tiered hints and worked examples
+frontend/src/lessons/shared/     single lesson, activities, animations, Python, records
+frontend/src/lessons/ai/         AI route, Gemini hint panel, current-attempt context
+frontend/src/lessons/control/    control route and fixed hint panel
 frontend/src/lib/                API client and chat history handling
 backend/app/routes/ai.py         request validation and AI endpoint
 backend/app/services/tutor.py    Gemini adapter and tutor instructions
 ```
 
-Each condition has a separate route bundle and curriculum. Work on a condition's
-folder without editing the other. Shared layout changes deliberately affect both.
-The control route imports no AI client or Python runtime and makes no backend
-requests. Align its eventual learning objectives, tasks, and timing with the AI
-lesson before comparing study outcomes.
+Each route supplies its support component to the same `RecursionLesson`.
+Curriculum and activity changes in the shared folder affect both conditions.
+Hint-system changes stay in the condition's folder. The control route runs the
+same browser Python checks but imports no AI client and makes no Gemini/backend
+requests. Progress and exports use separate condition-specific sessions.
 
 ## Local development (Windows / PowerShell)
 
@@ -69,7 +69,8 @@ Flask locally, so leave `VITE_API_BASE_URL` empty. Check the backend separately 
 On macOS/Linux, activate `backend/.venv/bin/activate` and use `python` and `npm`
 instead of the Windows executables. Gunicorn runs in production on Linux; use
 Flask's development server on Windows. The control lesson works without a backend
-or Gemini key. Unconfigured AI requests show a clear error rather than a fake answer.
+or Gemini key; Python's first download still requires internet access.
+Unconfigured AI requests show a clear error rather than a fake answer.
 
 ## Deploy the backend to Heroku
 
@@ -128,17 +129,17 @@ Original `#/lesson-ai` and `#/lesson-standard` links redirect to the new routes.
 For a custom domain, configure Pages and change the backend allowed origin. See
 [Vite's Pages deployment guide](https://vite.dev/guide/static-deploy.html).
 
-## AI lesson pilot
+## Matched lesson pilot
 
 The five parts follow the proposal and the team's clarified choices:
 
-| Part | Target time | Activity | Tutor support |
-| --- | --- | --- | --- |
-| Pre-test | 5 min | Three Fibonacci questions and prior memoization experience; answers lock on submission | Disabled |
-| Discover | 5 min | Dolls as a call tree, worked Fibonacci, explain base cases, reduction, pending calls | Hint on request, then follow-up input |
-| Build & trace | 5 min | Recursion suitability for Climbing Stairs, own naive code, draggable call tree for n=5 | Hint on request, then follow-up input |
-| Optimize | 5 min | Worked Fibonacci cache example, redundancy in own stairs tree, memoize own stairs code | Hint on request, then follow-up input |
-| Transfer | 10 min | Independent Grid Unique Paths: explain, code and construct a tree, then memoize | Disabled |
+| Part | Target time | Shared activity | AI support | Control support |
+| --- | --- | --- | --- | --- |
+| Pre-test | 5 min | Three Fibonacci questions and prior memoization experience; answers lock on submission | Disabled | Disabled |
+| Discover | 5 min | Dolls as a call tree, worked Fibonacci, explain base cases, reduction, pending calls | Hint on request, then follow-up input | Two static hints, then a model explanation |
+| Build & trace | 5 min | Recursion suitability for Climbing Stairs, own naive code, draggable call tree for n=5 | Hint on request, then follow-up input | Two static hints per activity, then reference code or annotated tree |
+| Optimize | 5 min | Worked Fibonacci cache example, redundancy in own stairs tree, memoize own stairs code | Hint on request, then follow-up input | Two static hints per activity, then a worked explanation or memoized code |
+| Transfer | 10 min | Independent Grid Unique Paths: explain, code and construct a tree, then memoize | Disabled | Disabled |
 
 Section time estimates are internal design targets and are not displayed in the
 lesson navigation. There is no countdown. Each activity unlocks after completing
@@ -169,11 +170,18 @@ hint button; follow-up input appears after a hint arrives. New activities return
 to the hint button. Previous messages remain visible in a scrollable history;
 only recent complete turns from the current activity are sent as API history.
 Server prompt policies remain unchanged; activity facts reflect this curriculum.
-AI support is
+All support is
 removed during the pre-test and transfer assessment, including its mobile button,
 and the backend rejects chat requests for these steps without contacting Gemini.
 Hints-only practice uses server-owned prompt policies; pilot-check live replies,
 especially requests for full solutions.
+
+Control hints are revealed in order. After both hints, the learner can reveal
+the complete worked answer and compare it with their own attempt. This pilot
+does not automatically grade written explanations to decide when help is needed.
+Reference code and trees appear only in the control support panel. Revealed hints
+and solutions persist when an activity is revisited or the page is refreshed.
+Attempt-based progression remains identical in both groups.
 
 The pilot is not a tamper-resistant assessment: browser state and tests can be
 inspected, and there is no authenticated assignment or server-side assessment
@@ -181,23 +189,26 @@ state. Call counts are a useful check for repeated work, not a proof of complexi
 
 ## Editing and study records
 
-- Edit AI tasks/context in `shared/ai-lesson.json` and activity components under
-  `frontend/src/lessons/ai/activities/`. Animations, Python execution, and study
-  state have their own folders. `ai_allowed: false` disables tutor UI and API help
+- Edit tasks/context for both groups in `shared/recursion-lesson.json` and activity components under
+  `frontend/src/lessons/shared/activities/`. Animations, Python execution, and study
+  state have their own shared folders. `ai_allowed: false` disables both support panels and API help
   for an assessment part. Tune the tutor in `backend/app/services/tutor.py`.
   Restart Flask after content edits and deploy **both services** for this lesson
   update: the backend needs the revised shared task context. Part IDs are unchanged.
-- Build the control lesson in `frontend/src/lessons/control/` and
-  `shared/lesson.json`. Its current corrections support self-checking only.
-- Bump the AI content `version` when tasks change. AI progress, answers, code,
+- Revise control hints and solutions in `shared/control-support.json`; its separate
+  support version is recorded in control exports. Its panel lives in
+  `frontend/src/lessons/control/`. Gemini support lives in `frontend/src/lessons/ai/`.
+- Bump the common curriculum `version` when tasks change. Progress, answers, code,
   conversations, and events persist across refreshes in `sessionStorage` in the
-  current browser tab. A fresh tab starts a new session. The existing control
-  sample retains its in-memory record behavior.
+  current browser tab, with separate storage keys for AI and control. A fresh tab
+  starts a new session. The existing curriculum version and API part IDs are retained
+  to preserve AI progress. `shared/lesson.json` remains only for the legacy API setup check.
 - **Download session record** exports schema version 3: random session ID,
   condition/content version, cohort flags, answers, code, constructed trees,
   per-activity submission snapshots, run results, navigation/animation interactions,
   hint and follow-up counts/timing, edit events, and active time.
   Chat text persists locally for resume but is omitted from the export.
+  Control records also contain revealed hint tiers, fallback usage, and support version.
 
 Active time accumulates while the tab is visible and the last pointer/keyboard
 interaction was within 60 seconds. `activeMsByPart` keys 0–4 match the table above;
@@ -207,6 +218,8 @@ into its sequential activities. `metrics.activityTimeline` reports first run,
 first passing practice run, submissions, edits, and feedback-to-next-edit delays.
 Text/code edit bursts within 700 ms count as one edit event. Syntax errors,
 failed output checks, runtime exceptions, and hint turns have separate counters.
+`metrics.fixedHintsOpened` and `metrics.fallbackSolutionsDisplayed` measure control
+support usage; `metrics.hintRequests` counts requests for either kind of hint.
 `metrics.unsuccessfulMemoizationRuns`
 counts tests that fail correctness/structure/efficiency checks and execution
 timeouts. Runtime download failures are logged separately and do not count as

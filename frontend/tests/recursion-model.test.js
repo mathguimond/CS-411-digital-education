@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { fibonacciTrace, treeLayout } from '../src/lessons/ai/visualizations/recursionModel.js'
+import { describeTraceEvent, fibonacciTrace, stairsTrace, treeLayout } from '../src/lessons/shared/visualizations/recursionModel.js'
 
 test('fib(4) illustrates repeated work and stack depth accurately', () => {
   const trace = fibonacciTrace(4)
@@ -43,4 +43,16 @@ test('tree positions put each parent above and between its children', () => {
 
 test('visualization inputs are bounded', () => {
   for (const n of [-1, 9, 2.5, '4']) assert.throws(() => fibonacciTrace(n), RangeError)
+})
+
+test('control reference uses stairs base values and labels while preserving the branching model', () => {
+  const reference = stairsTrace(5)
+  assert.equal(reference.result, 8)
+  assert.equal(reference.calls, 15)
+  assert.equal(reference.maxStackDepth, 5)
+  assert.equal(reference.counts[2], 3)
+  assert.equal(reference.counts[3], 2)
+  assert.equal(stairsTrace(0).result, 1)
+  assert.equal(stairsTrace(1).result, 1)
+  assert.match(describeTraceEvent(reference.events.at(-1), 'climb_stairs'), /Return 8 from climb_stairs\(5\)/)
 })

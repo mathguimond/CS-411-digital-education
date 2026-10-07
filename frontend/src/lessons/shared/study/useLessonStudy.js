@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createLessonSession, currentActivity, studyMetrics } from './lessonState.js'
 
-export default function useLessonStudy(version) {
-  const storageKey = `dynamic-learning:ai:${version}`
+export default function useLessonStudy(version, condition, supportVersion) {
+  const storageKey = `dynamic-learning:${condition}:${version}`
   const [session, setSession] = useState(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(storageKey))
-      if (saved?.lessonVersion === version && saved.schemaVersion === 3 && Array.isArray(saved.events) && saved.answers && saved.code && saved.trees && saved.completedActivities) return saved
+      if (saved?.condition === condition && saved.lessonVersion === version && saved.schemaVersion === 3 && (saved.supportVersion ?? null) === supportVersion && Array.isArray(saved.events) && saved.answers && saved.code && saved.trees && saved.completedActivities) return saved
     } catch { /* Continue in memory if browser storage is unavailable. */ }
-    return createLessonSession(version)
+    return createLessonSession(version, condition, supportVersion)
   })
   const current = useRef(session)
   const lastActivity = useRef(0)
@@ -79,7 +79,7 @@ export default function useLessonStudy(version) {
     const blob = new Blob([JSON.stringify({ ...exported, metrics: studyMetrics(value) }, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
-    anchor.href = url; anchor.download = `dynamic-learning-ai-${value.sessionId}.json`
+    anchor.href = url; anchor.download = `dynamic-learning-${value.condition}-${value.sessionId}.json`
     document.body.append(anchor); anchor.click(); anchor.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }, [])

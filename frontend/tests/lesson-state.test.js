@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createLessonSession, canVisitPart, cohortFlags, learnerContext, scorePretest, studyMetrics } from '../src/lessons/ai/study/lessonState.js'
-import { ACTIVITIES, canVisitActivity } from '../src/lessons/ai/activities/activityPlan.js'
+import { createLessonSession, canVisitPart, cohortFlags, scorePretest, studyMetrics } from '../src/lessons/shared/study/lessonState.js'
+import { learnerContext } from '../src/lessons/ai/hintContext.js'
+import { ACTIVITIES, canVisitActivity } from '../src/lessons/shared/activities/activityPlan.js'
 
 test('assessment order locks the baseline and earlier parts during transfer', () => {
   const session = createLessonSession('test')
@@ -13,6 +14,18 @@ test('assessment order locks the baseline and earlier parts during transfer', ()
   session.transferStarted = true
   assert.equal(canVisitPart(session, 2), false)
   assert.equal(canVisitPart(session, 4), true)
+})
+
+test('both conditions start with identical tasks and independent progress', () => {
+  const ai = createLessonSession('test', 'ai')
+  const control = createLessonSession('test', 'control', 'fixed-hints-v1')
+  assert.equal(control.condition, 'control')
+  assert.equal(ai.condition, 'ai')
+  assert.equal(control.supportVersion, 'fixed-hints-v1')
+  assert.notEqual(ai.sessionId, control.sessionId)
+  for (const field of ['code', 'trees', 'answers', 'completedParts', 'completedActivities']) assert.deepEqual(ai[field], control[field])
+  control.answers['intro-base'] = 'My control answer'
+  assert.deepEqual(ai.answers, {})
 })
 
 test('study outcomes distinguish code errors, unoptimized runs, and assessment runs', () => {
@@ -87,4 +100,21 @@ test('hint context prioritizes failing tests and includes structural and efficie
   assert.equal(context.lastRun.tests[0].input, 20)
   assert.equal(context.lastRun.efficiency.calls, 10001)
   assert.equal(context.lastRun.analysis.dictionaryUsed, false)
+})
+
+test('control hints and fallback solutions contribute to comparable process metrics', () => {
+  const session = createLessonSession('test', 'control')
+  session.events = [
+    { type: 'hint_revealed', activityId: 'stairs-design', tier: 1, timestamp: '2026-10-07T10:00:05Z' },
+    { type: 'hint_revealed', activityId: 'stairs-design', tier: 2, timestamp: '2026-10-07T10:00:08Z' },
+    { type: 'solution_revealed', activityId: 'stairs-design', timestamp: '2026-10-07T10:00:10Z' },
+    { type: 'code_edited', activityId: 'stairs-design', timestamp: '2026-10-07T10:00:14Z' },
+  ]
+  const metrics = studyMetrics(session)
+  assert.equal(metrics.hintRequests, 2)
+  assert.equal(metrics.fixedHintsOpened, 2)
+  assert.equal(metrics.fallbackSolutionsDisplayed, 1)
+  assert.equal(metrics.aiInteractionTurns, 0)
+  assert.equal(metrics.activityTimeline['stairs-design'].fallbackDisplayed, true)
+  assert.deepEqual(metrics.activityTimeline['stairs-design'].feedbackToEditMs, [4000])
 })

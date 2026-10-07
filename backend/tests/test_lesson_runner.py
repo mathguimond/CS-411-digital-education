@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
@@ -38,6 +39,12 @@ GRID = '''def unique_paths(rows, cols):
 
 
 class LessonRunnerTests(unittest.TestCase):
+    def test_control_worked_code_passes_the_same_checks_as_learner_code(self):
+        support = json.loads((RUNNER.parents[3] / 'shared/control-support.json').read_text(encoding='utf-8'))
+        for activity_id, runner_id in [('stairs-design', 'stairs'), ('stairs-memoization', 'memoization')]:
+            with self.subTest(activity=activity_id):
+                self.assertTrue(runner.run_activity(support['activities'][activity_id]['solution']['code'], runner_id)['passed'])
+
     def test_naive_recursion_and_memoized_recursion_pass_their_activities(self):
         self.assertTrue(runner.run_activity(FIBONACCI, 'fibonacci')['passed'])
         self.assertTrue(runner.run_activity(STAIRS, 'stairs')['passed'])
