@@ -19,6 +19,19 @@
 .ai-lesson .part-number { font-family: ui-monospace, monospace; font-size: .77rem; }
 .ai-lesson .part-kicker { color: #8c683c; }
 .ai-lesson .activity-lead { color: #586a5a; }
+.ai-lesson .activity-progress { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+.ai-lesson .activity-progress button { padding: 8px 12px; font-size: .76rem; }
+.ai-lesson .activity-progress .current { background: #e2ebd6; border-color: #81976c; }
+.ai-lesson .activity-title { margin-top: 24px; }
+.ai-lesson .worked-code { background: #203b32; color: #edf2e2; border-radius: 8px; padding: 16px; overflow-x: auto; font: .8rem/1.7 ui-monospace, Consolas, monospace; }
+.ai-lesson .grid-task-diagram { display: block; width: 240px; max-width: 100%; margin: 20px auto; }
+.ai-lesson .grid-task-diagram rect { fill: #f1f4e9; stroke: #a5b596; }
+.ai-lesson .grid-task-diagram .endpoint { fill: #dbe8cf; stroke: #315a46; }
+.ai-lesson .grid-task-diagram text { fill: #315a46; font: 12px ui-monospace, monospace; }
+.ai-lesson .transfer-work { border: 0; padding: 0; margin: 0; min-width: 0; }
+.ai-lesson .chat-transcript { height: auto; min-height: 0; max-height: 320px; overflow-y: auto; overscroll-behavior: contain; }
+.ai-lesson .chat-activity-label { font-size: .72rem; font-weight: 600; border-top: 1px solid #d7dfd0; padding-top: 12px; color: #68765f; }
+.ai-lesson .current-hint-activity { background: #f1f4e9; padding: 10px; border-radius: 6px; }
 .ai-lesson .activity-note { background: #f3f5ed; border-left: 3px solid #b89559; border-radius: 0 8px 8px 0; padding: 15px 18px; margin: 20px 0; font-size: .88rem; }
 .ai-lesson .activity-note p { margin: 5px 0 0; }
 .ai-lesson .activity-section { margin-top: 32px; }
@@ -60,11 +73,28 @@
 .ai-lesson .doll-stack > div { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 18px; }
 .ai-lesson .doll-stack > div span, .ai-lesson .cache-values span { font: .72rem ui-monospace, monospace; padding: 5px 8px; border-radius: 5px; border: 1px solid #d7dfd0; background: #fff; }
 .ai-lesson .doll-stack .current { background: #284e40; color: white; }
+.ai-lesson .doll-call-tree svg { display: block; width: 100%; height: 260px; }
+.ai-lesson .doll-tree-node rect { fill: #edf2e4; stroke: #9aaf8a; transition: fill .3s; }
+.ai-lesson .doll-tree-node text { fill: #315a46; font: 12px ui-monospace, monospace; }
+.ai-lesson .doll-tree-node.unopened { opacity: .3; }
+.ai-lesson .doll-tree-node.returned rect { fill: #dbe8cf; }
+.ai-lesson .doll-tree-node.active rect { fill: #315a46; }
+.ai-lesson .doll-tree-node.active text { fill: white; }
 .ai-lesson .playback-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ai-lesson .playback-controls button { padding: 8px 12px; font-size: .78rem; }
 .ai-lesson .playback-controls .text-button { margin-left: auto; }
 .ai-lesson .tree-scroll { overflow-x: auto; padding: 5px 0; }
 .ai-lesson .tree-scroll svg { display: block; width: 100%; max-height: 440px; }
+.ai-lesson .builder-canvas { max-height: 420px; overflow: auto; border: 1px solid #dce3d3; background: #fff; border-radius: 8px; }
+.ai-lesson .builder-canvas svg { height: 780px; max-height: none; }
+.ai-lesson .builder-node { cursor: grab; touch-action: none; }
+.ai-lesson .builder-node:active { cursor: grabbing; }
+.ai-lesson .builder-node:focus rect { stroke: #315a46; stroke-width: 3; }
+.ai-lesson .node-editor { margin-top: 16px; }
+.ai-lesson .node-editor .prediction-fields { gap: 12px; }
+.ai-lesson .node-editor input[type=number] { max-width: 140px; }
+.ai-lesson .answer-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.ai-lesson .tree-check { margin-top: 16px; }
 .ai-lesson .tree-edge { fill: none; stroke: #d4dbcd; stroke-width: 2; }
 .ai-lesson .tree-edge.visited { stroke: #9aaf8a; }
 .ai-lesson .tree-node { cursor: pointer; }

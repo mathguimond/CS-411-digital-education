@@ -134,26 +134,42 @@ The five parts follow the proposal and the team's clarified choices:
 
 | Part | Target time | Activity | Tutor support |
 | --- | --- | --- | --- |
-| Pre-test | 3 min | Four drafted diagnostic questions; answers lock on submission | Disabled |
-| Discover | 5 min | Animated nesting dolls, waiting calls, returns, own explanation | Conversation with check-in questions |
-| Build & trace | 8 min | Suitability comparison, recursive Fibonacci, predict and trace fib(4) | Hints only |
-| Optimize | 7 min | Identify repeated inputs, dictionary memoization, cache animation, explain complexity | Hints only |
-| Transfer | 7 min | Independent Climbing Stairs code and design explanation | Disabled |
+| Pre-test | 5 min | Three Fibonacci questions and prior memoization experience; answers lock on submission | Disabled |
+| Discover | 5 min | Dolls as a call tree, worked Fibonacci, explain base cases, reduction, pending calls | Hint on request, then follow-up input |
+| Build & trace | 5 min | Recursion suitability for Climbing Stairs, own naive code, draggable call tree for n=5 | Hint on request, then follow-up input |
+| Optimize | 5 min | Worked Fibonacci cache example, redundancy in own stairs tree, memoize own stairs code | Hint on request, then follow-up input |
+| Transfer | 10 min | Independent Grid Unique Paths: explain, code and construct a tree, then memoize | Disabled |
 
 Section time estimates are internal design targets and are not displayed in the
-lesson navigation. There is no countdown. Students may revisit submitted practice parts until they
+lesson navigation. There is no countdown. Each activity unlocks after completing
+its responses and submitting an attempt, without requiring correctness. Tree
+attempts require filled inputs and returns for at least three nodes. Students may revisit submitted practice parts until they
 start transfer, but cannot reopen the pre-test. During transfer, earlier practice
 and its conversations are inaccessible. Their own Python code can run, including
 their chosen print statements; generated correctness tests run only on final
-submission. Both assessment results appear at the end. Explanations need organizer
-review; the output, structure, and call-count checks provide initial feedback.
+submission. Grid approach responses must be submitted before the editor appears;
+assessment stages then advance in a fixed order. Both assessment results appear
+at the end. Explanations and agreement between code and trees need organizer
+review; output, structure, call-count, and tree checks provide initial feedback.
+Grid memoization should use O(rows × cols) time/cache and O(rows + cols) stack
+space under unit-cost arithmetic and dictionary access.
+
+Prior independent memoization experience and possible prior mastery are flagged
+in exported records. These flags never block participation. The experience
+question is not included in the scored three-question baseline.
 
 Python executes in a module Web Worker using
 [Pyodide](https://pyodide.org/en/stable/usage/webworker.html), pinned to 314.0.7.
 The first run downloads the runtime from jsDelivr, so it requires internet access.
 Execution is stopped after eight seconds; output and test function-call counts
 are bounded. No learner code executes on Flask. When a student asks for practice
-help, their current attempt is sent to Gemini with the message. The tutor is
+help, their current activity's responses, code, constructed tree, and latest run
+are sent to Gemini with the message. Each assisted activity initially shows a
+hint button; follow-up input appears after a hint arrives. New activities return
+to the hint button. Previous messages remain visible in a scrollable history;
+only recent complete turns from the current activity are sent as API history.
+Server prompt policies remain unchanged; activity facts reflect this curriculum.
+AI support is
 removed during the pre-test and transfer assessment, including its mobile button,
 and the backend rejects chat requests for these steps without contacting Gemini.
 Hints-only practice uses server-owned prompt policies; pilot-check live replies,
@@ -170,22 +186,28 @@ state. Call counts are a useful check for repeated work, not a proof of complexi
   state have their own folders. `ai_allowed: false` disables tutor UI and API help
   for an assessment part. Tune the tutor in `backend/app/services/tutor.py`.
   Restart Flask after content edits and deploy **both services** for this lesson
-  update: the new activity IDs must be available to the backend.
+  update: the backend needs the revised shared task context. Part IDs are unchanged.
 - Build the control lesson in `frontend/src/lessons/control/` and
   `shared/lesson.json`. Its current corrections support self-checking only.
 - Bump the AI content `version` when tasks change. AI progress, answers, code,
   conversations, and events persist across refreshes in `sessionStorage` in the
   current browser tab. A fresh tab starts a new session. The existing control
   sample retains its in-memory record behavior.
-- **Download session record** exports schema version 2: random session ID,
-  condition/content version, answers, code, submissions, run snapshots/results,
-  navigation/animation interactions, tutor request counts/timing, and active time.
+- **Download session record** exports schema version 3: random session ID,
+  condition/content version, cohort flags, answers, code, constructed trees,
+  per-activity submission snapshots, run results, navigation/animation interactions,
+  hint and follow-up counts/timing, edit events, and active time.
   Chat text persists locally for resume but is omitted from the export.
 
 Active time accumulates while the tab is visible and the last pointer/keyboard
 interaction was within 60 seconds. `activeMsByPart` keys 0–4 match the table above;
 part 3 includes diagnosis, refactoring, and explanation. `activeMsByEditor` measures
-focused, enabled Python editing separately. `metrics.unsuccessfulMemoizationRuns`
+focused, enabled Python editing separately. `activeMsByActivity` splits each part
+into its sequential activities. `metrics.activityTimeline` reports first run,
+first passing practice run, submissions, edits, and feedback-to-next-edit delays.
+Text/code edit bursts within 700 ms count as one edit event. Syntax errors,
+failed output checks, runtime exceptions, and hint turns have separate counters.
+`metrics.unsuccessfulMemoizationRuns`
 counts tests that fail correctness/structure/efficiency checks and execution
 timeouts. Runtime download failures are logged separately and do not count as
 unsuccessful learner programs. Saved responses and tests are pilot measures,

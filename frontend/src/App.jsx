@@ -12,7 +12,7 @@ function SetupPage() {
       <h1>One topic.<br />Two ways to learn.</h1>
       <p className="lead">Recursion, with a path toward memoization. Two lesson environments for exploring how support affects learning.</p>
       <div className="setup-links">
-        <Link className="setup-card" to="/ai-lesson"><span className="eyebrow">Environment 01</span><h2>AI-assisted lesson <span aria-hidden="true">↗</span></h2><p>Explore recursion with animations, Python practice, and a tutor that offers hints.</p></Link>
+        <Link className="setup-card" to="/ai-lesson"><span className="eyebrow">Environment 01</span><h2>AI-assisted lesson <span aria-hidden="true">↗</span></h2><p>Explore recursion with animations, Python practice, and hints adapted to your current work.</p></Link>
         <Link className="setup-card" to="/control-lesson"><span className="eyebrow">Environment 02</span><h2>Control lesson <span aria-hidden="true">↗</span></h2><p>Reveal prepared hints and compare your answer with a correction.</p></Link>
       </div>
       <p className="muted">Organizer preview. Send participants the direct link to their assigned lesson.</p>

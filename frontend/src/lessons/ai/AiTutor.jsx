@@ -1,65 +1,56 @@
 import { useEffect, useRef, useState } from 'react'
 import { askTutor, recentHistory } from '../../lib/api.js'
 
-export default function AiTutor({ step, record, learnerContext = '', conversation = [], onConversationChange }) {
-  const [messages, setMessages] = useState(conversation)
+export default function AiTutor({ step, activity, record, learnerContext = '', conversation = [], onConversationChange, unlocked, onUnlock, onBusyChange }) {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const activeRequest = useRef(null)
   const transcript = useRef(null)
-  const clarificationOnly = step.support_mode === 'clarifications'
-  const concept = step.support_mode === 'concept'
+  useEffect(() => () => { activeRequest.current?.abort(); activeRequest.current = null }, [])
+  useEffect(() => { onBusyChange?.(busy) }, [busy, onBusyChange])
+  useEffect(() => { if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight }, [conversation.length, busy])
 
-  useEffect(() => () => activeRequest.current?.abort(), [])
-  useEffect(() => {
-    if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight
-  }, [messages, busy])
-
-  async function send(event) {
-    event.preventDefault()
-    await sendMessage(draft.trim())
-  }
-
-  async function sendMessage(message) {
+  async function sendMessage(message, requestKind) {
     if (!message || activeRequest.current) return
     const controller = new AbortController()
     activeRequest.current = controller
     const timeout = setTimeout(() => controller.abort(), 25000)
-    setBusy(true)
-    setError('')
-    record('chat_requested', { stepId: step.id, messageLength: message.length, supportMode: step.support_mode })
+    setBusy(true); setError('')
+    record('chat_requested', { activityId: activity.id, stepId: step.id, messageLength: message.length, supportMode: step.support_mode, requestKind })
     const started = performance.now()
     try {
-      const reply = await askTutor({ message, history: recentHistory(messages), stepId: step.id, signal: controller.signal, learnerContext: clarificationOnly ? '' : learnerContext.slice(0, 6000) })
-      const next = [...messages, { role: 'user', content: message }, { role: 'assistant', content: reply }]
-      setMessages(next)
-      onConversationChange?.(next)
-      setDraft('')
-      record('chat_answered', { stepId: step.id, durationMs: Math.round(performance.now() - started) })
+      const history = recentHistory(conversation.filter((entry) => entry.activityId === activity.id))
+      const reply = await askTutor({ message, history, stepId: step.id, signal: controller.signal, learnerContext })
+      const tag = { activityId: activity.id, activityTitle: activity.title }
+      onConversationChange([...conversation, { role: 'user', content: message, ...tag }, { role: 'assistant', content: reply, ...tag }])
+      onUnlock(); setDraft('')
+      record('chat_answered', { activityId: activity.id, stepId: step.id, requestKind, durationMs: Math.round(performance.now() - started) })
     } catch (failure) {
-      setError(failure.name === 'AbortError' ? 'The tutor took too long to respond. Please try again.' : failure.message)
-      record('chat_failed', { stepId: step.id })
+      if (!controller.signal.aborted || activeRequest.current) {
+        setError(failure.name === 'AbortError' ? 'The hint took too long to arrive. Please try again.' : failure.message)
+        record('chat_failed', { activityId: activity.id, stepId: step.id, requestKind })
+      }
     } finally {
-      clearTimeout(timeout)
-      activeRequest.current = null
-      setBusy(false)
+      clearTimeout(timeout); activeRequest.current = null; setBusy(false)
     }
   }
 
-  return (
-    <>
-      <p className="eyebrow">{clarificationOnly ? 'Assessment support' : 'Your learning tools'}</p><h2>{clarificationOnly ? 'Clarify the task' : 'Think with a tutor'}</h2>
-      <p className="muted">{clarificationOnly ? 'Ask about the instructions or interface. The tutor cannot give hints, code, answers, or feedback during this assessment.' : concept ? 'Explore recursion through a conversation. The tutor will ask short check-in questions and adapt to your replies.' : 'Ask for one targeted hint about your own attempt. The tutor helps you reason without revealing the solution.'}</p>
-      {messages.length === 0 && <button className="secondary full-width tutor-start" disabled={busy} onClick={() => sendMessage(clarificationOnly ? 'Can you clarify what I need to submit?' : concept ? 'Introduce recursion using the nesting dolls and ask me one quick check-in question.' : 'Give me one small hint about my current attempt.')}>{clarificationOnly ? 'Clarify the instructions' : concept ? 'Start the conversation' : 'Ask for a first hint'}</button>}
-      <div className="chat-transcript" role="log" aria-label="Tutor conversation" aria-live="polite" ref={transcript}>
-        {messages.length === 0 && <div className="chat-empty"><span aria-hidden="true">↳</span><p>{clarificationOnly ? 'What wording needs clarifying?' : 'Where are you getting stuck?'}</p><small>{clarificationOnly ? 'Your solution stays your own.' : 'One question, one next step.'}</small></div>}
-        {messages.map((entry, index) => <div className={`chat-message ${entry.role}`} key={index}><span className="eyebrow">{entry.role === 'user' ? 'You' : 'Tutor'}</span><p>{entry.content}</p></div>)}
-        {busy && <p role="status" className="muted">The tutor is thinking…</p>}
-      </div>
-      {error && <p role="alert" className="error-message">{error}</p>}
-      <form onSubmit={send}><label htmlFor="tutor-message">Ask the tutor</label><textarea id="tutor-message" rows={3} maxLength={4000} value={draft} disabled={busy} onChange={(event) => setDraft(event.target.value)} placeholder="What would you like to understand?" /><button className="full-width" type="submit" disabled={busy || !draft.trim()}>{busy ? 'Waiting for tutor…' : 'Send message ↗'}</button></form>
-      <p className="small muted">Messages {clarificationOnly ? '' : 'and your current attempt '}are sent to Gemini. Avoid personal information. AI replies can contain mistakes.</p>
-    </>
-  )
+  return <>
+    <p className="eyebrow">Help with your current activity</p><h2>A next step, when you need it.</h2>
+    <p className="muted">Request a hint based on your answers, code, and call tree. Then ask follow-up questions about that hint.</p>
+    <p className="small current-hint-activity"><strong>{activity.title}</strong></p>
+    {conversation.length > 0 && <div className="chat-transcript" role="log" aria-label="Hint history" aria-live="polite" ref={transcript}>
+      {conversation.map((entry, index) => <div key={index}>
+        {entry.activityId !== conversation[index - 1]?.activityId && <p className="chat-activity-label">{entry.activityTitle}</p>}
+        <div className={`chat-message ${entry.role}`}><span className="eyebrow">{entry.role === 'user' ? 'You' : 'AI hint'}</span><p>{entry.content}</p></div>
+      </div>)}
+    </div>}
+    {busy && <p role="status" className="muted">Preparing your hint…</p>}
+    {error && <p role="alert" className="error-message">{error}</p>}
+    {!unlocked ? <button className="full-width tutor-start" disabled={busy} onClick={() => sendMessage('Give me one small hint about my current attempt.', 'hint')}>{busy ? 'Preparing your hint…' : 'Ask for a hint'}</button> : <form onSubmit={(event) => { event.preventDefault(); sendMessage(draft.trim(), 'follow_up') }}>
+      <label htmlFor="tutor-message">Ask a follow-up question</label><textarea id="tutor-message" rows={3} maxLength={4000} value={draft} disabled={busy} onChange={(event) => setDraft(event.target.value)} placeholder="What about this hint needs clarification?" /><button className="full-width" type="submit" disabled={busy || !draft.trim()}>{busy ? 'Waiting for a reply…' : 'Send follow-up ↗'}</button>
+    </form>}
+    <p className="small muted">Your current attempt and messages are sent to Gemini. AI replies can contain mistakes.</p>
+  </>
 }

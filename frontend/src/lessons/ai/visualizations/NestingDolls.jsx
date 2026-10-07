@@ -42,7 +42,19 @@ export default function NestingDolls({ record }) {
       return <Doll key={number} number={number} status={status} />
     })}</div>
     <p className="animation-caption" role="status">{frame.caption}</p>
-    <div className="doll-stack"><span className="eyebrow">Call stack · {frame.depth} {frame.depth === 1 ? 'frame' : 'frames'}</span><div>{Array.from({ length: frame.depth }, (_, index) => <span key={index} className={index === frame.depth - 1 ? 'current' : ''}>open(doll {index + 1})</span>)}{frame.depth === 0 && <span>Empty — all calls returned</span>}</div></div>
+    <div className="doll-call-tree"><p className="eyebrow">Call stack · {frame.depth} {frame.depth === 1 ? 'frame' : 'frames'}</p>
+      <svg viewBox="0 0 360 260" role="img" aria-label="Nesting doll call tree, one smaller call per doll">
+        {Array.from({ length: 5 }, (_, number) => {
+          const x = 125 + number * 22, y = 25 + number * 48
+          const status = number >= 5 - frame.returned ? 'returned' : number === frame.depth - 1 ? 'active' : number < frame.depth ? 'waiting' : 'unopened'
+          return <g key={number} className={`doll-tree-node ${status}`}>
+            {number > 0 && <path className="tree-edge" d={`M ${x - 22} ${y - 30} L ${x} ${y - 18}`} />}
+            <rect x={x - 82} y={y - 18} width="164" height="36" rx="8" />
+            <text x={x} y={y + 4} textAnchor="middle">open(doll {number + 1}){status === 'returned' ? ' ✓' : ''}</text>
+          </g>
+        })}
+      </svg><p className="small muted">Each doll makes one smaller call, so this call tree is a chain. The highlighted call is active; its ancestors are waiting. {frame.depth === 0 && 'All calls have returned.'}</p>
+    </div>
     <div className="playback-controls"><button className="secondary" onClick={() => playback.step(-1)} disabled={playback.index === 0} aria-label="Previous animation step">←</button><button onClick={() => { playback.toggle(); record('animation_played', { visualization: 'nesting-dolls' }) }}>{playback.playing ? 'Pause' : 'Play animation'}</button><button className="secondary" onClick={() => { playback.step(1); record('animation_stepped', { visualization: 'nesting-dolls' }) }} disabled={playback.index === frames.length - 1} aria-label="Next animation step">→</button><button className="text-button" onClick={playback.reset}>Reset</button></div>
   </section>
 }

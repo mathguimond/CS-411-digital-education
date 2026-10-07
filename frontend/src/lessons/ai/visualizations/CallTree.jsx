@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { describeTraceEvent, fibonacciTrace, treeLayout } from './recursionModel.js'
 import usePlayback from './usePlayback.js'
 
-export default function CallTree({ memoized = false, record, revealRepeated = false }) {
-  const trace = useMemo(() => fibonacciTrace(4, { memoized }), [memoized])
+export default function CallTree({ input = 4, memoized = false, record, revealRepeated = false }) {
+  const trace = useMemo(() => fibonacciTrace(input, { memoized }), [input, memoized])
   const layout = useMemo(() => treeLayout(trace.nodes), [trace])
   const playback = usePlayback(trace.events.length, 800)
   const [selectedN, setSelectedN] = useState(revealRepeated ? 2 : null)
@@ -16,7 +16,7 @@ export default function CallTree({ memoized = false, record, revealRepeated = fa
   function selectNode(n) { setSelectedN(selectedN === n ? null : n); record('tree_node_selected', { input: n, memoized }) }
 
   return <section className="interactive-figure call-tree-figure" aria-label={`${memoized ? 'Memoized' : 'Naive'} Fibonacci call tree`}>
-    <div className="figure-heading"><span className="eyebrow">{memoized ? 'Reuse a cached result' : 'Follow each call'} · fib(4)</span><span className="figure-counter">{playback.index + 1} / {trace.events.length}</span></div>
+    <div className="figure-heading"><span className="eyebrow">{memoized ? 'Reuse a cached result' : 'Follow each call'} · fib({input})</span><span className="figure-counter">{playback.index + 1} / {trace.events.length}</span></div>
     <div className="tree-scroll"><svg viewBox={`0 0 ${layout.width} ${layout.height}`} style={{ minWidth: layout.width }} role="group" aria-label="Fibonacci call tree. Click a node to highlight calls with the same input.">
       {trace.nodes.filter((node) => node.parentId).map((node) => {
         const start = layout.positions[node.parentId], end = layout.positions[node.id]

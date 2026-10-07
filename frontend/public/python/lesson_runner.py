@@ -23,8 +23,9 @@ class BoundedOutput(io.StringIO):
 
 ACTIVITIES = {
     "fibonacci": {"function": "fib", "cases": [(0, 0), (1, 1), (2, 1), (4, 3), (6, 8), (8, 21)], "memoized": False},
-    "memoization": {"function": "fib_memo", "cases": [(0, 0), (1, 1), (2, 1), (4, 3), (6, 8), (10, 55), (20, 6765)], "memoized": True},
-    "transfer": {"function": "climb_stairs", "cases": [(0, 1), (1, 1), (2, 2), (4, 5), (6, 13), (10, 89), (20, 10946)], "memoized": True},
+    "stairs": {"function": "climb_stairs", "cases": [(0, 1), (1, 1), (2, 2), (4, 5), (5, 8), (8, 34)], "memoized": False},
+    "memoization": {"function": "climb_stairs", "cases": [(0, 1), (1, 1), (2, 2), (4, 5), (6, 13), (10, 89), (20, 10946)], "memoized": True},
+    "transfer": {"function": "unique_paths", "cases": [((0, 0), 0), ((0, 4), 0), ((4, 0), 0), ((1, 1), 1), ((1, 4), 1), ((4, 1), 1), ((2, 3), 3), ((3, 3), 6), ((3, 7), 28), ((8, 8), 3432), ((12, 12), 705432)], "memoized": True},
 }
 
 
@@ -76,14 +77,16 @@ def run_activity(source, activity, mode="test"):
                             if calls > 10000:
                                 raise RuntimeError("More than 10,000 function calls. This run was stopped.")
 
-                    case = {"input": input_value, "expected": expected, "actual": None, "passed": False, "error": None, "calls": 0}
+                    arguments = input_value if isinstance(input_value, tuple) else (input_value,)
+                    label = f"rows = {arguments[0]}, cols = {arguments[1]}" if len(arguments) == 2 else f"n = {input_value}"
+                    case = {"input": input_value, "label": label, "expected": expected, "actual": None, "passed": False, "error": None, "calls": 0}
                     try:
                         exec(compiled, namespace)
                         function = namespace.get(specification["function"])
                         if not callable(function):
                             raise ValueError(f"Define a function named {specification['function']}.")
                         sys.setprofile(profiler)
-                        actual = function(input_value)
+                        actual = function(*arguments)
                         case["actual"] = actual if isinstance(actual, (int, float, str, bool, type(None))) else repr(actual)[:100]
                         case["passed"] = actual == expected
                     except Exception as error:
@@ -97,8 +100,9 @@ def run_activity(source, activity, mode="test"):
                 structural = result["analysis"]["recursionUsed"]
                 if specification["memoized"]:
                     largest = result["tests"][-1]
-                    result["efficiency"] = {"input": largest["input"], "calls": largest["calls"], "limit": 2 * largest["input"] + 5,
-                                            "passed": largest["passed"] and largest["calls"] <= 2 * largest["input"] + 5}
+                    size = largest["input"][0] * largest["input"][1] if isinstance(largest["input"], tuple) else largest["input"]
+                    result["efficiency"] = {"input": largest["input"], "label": largest["label"], "calls": largest["calls"], "limit": 2 * size + 5,
+                                            "passed": largest["passed"] and largest["calls"] <= 2 * size + 5}
                     structural = structural and result["analysis"]["dictionaryUsed"] and result["efficiency"]["passed"]
                 result["passed"] = all_correct and structural
     except Exception as error:

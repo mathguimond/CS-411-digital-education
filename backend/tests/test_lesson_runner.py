@@ -12,35 +12,54 @@ FIBONACCI = '''def fib(n):
         return n
     return fib(n - 1) + fib(n - 2)
 '''
-MEMOIZED = '''def fib_memo(n):
+STAIRS = FIBONACCI.replace('fib(', 'climb_stairs(').replace('return n', 'return 1')
+MEMOIZED = '''def climb_stairs(n):
     cache = {}
     def solve(k):
         if k not in cache:
-            cache[k] = k if k < 2 else solve(k - 1) + solve(k - 2)
+            cache[k] = 1 if k < 2 else solve(k - 1) + solve(k - 2)
         return cache[k]
     return solve(n)
+'''
+
+GRID = '''def unique_paths(rows, cols):
+    cache = {}
+    def solve(r, c):
+        if (r, c) not in cache:
+            if not r or not c:
+                cache[r, c] = 0
+            elif r == 1 or c == 1:
+                cache[r, c] = 1
+            else:
+                cache[r, c] = solve(r - 1, c) + solve(r, c - 1)
+        return cache[r, c]
+    return solve(rows, cols)
 '''
 
 
 class LessonRunnerTests(unittest.TestCase):
     def test_naive_recursion_and_memoized_recursion_pass_their_activities(self):
         self.assertTrue(runner.run_activity(FIBONACCI, 'fibonacci')['passed'])
+        self.assertTrue(runner.run_activity(STAIRS, 'stairs')['passed'])
         result = runner.run_activity(MEMOIZED, 'memoization')
         self.assertTrue(result['passed'])
         self.assertLessEqual(result['efficiency']['calls'], 45)
 
     def test_unoptimized_refactoring_is_detected(self):
-        naive = FIBONACCI.replace('fib(', 'fib_memo(') + '\nunused_cache = {}'
+        naive = STAIRS + '\nunused_cache = {}'
         result = runner.run_activity(naive, 'memoization')
         self.assertFalse(result['passed'])
         self.assertFalse(result['efficiency']['passed'])
         self.assertIn('10,000', result['tests'][-1]['error'])
 
     def test_transfer_convention_and_own_code_runs(self):
-        source = MEMOIZED.replace('fib_memo', 'climb_stairs').replace('= k if k < 2', '= 1 if k < 2')
-        self.assertTrue(runner.run_activity(source, 'transfer')['passed'])
-        own_run = runner.run_activity(source + '\nprint(climb_stairs(4))', 'transfer', 'run')
-        self.assertEqual(own_run['output'], '5\n')
+        source = GRID
+        result = runner.run_activity(source, 'transfer')
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['totalTests'], 11)
+        self.assertLessEqual(result['efficiency']['calls'], 293)
+        own_run = runner.run_activity(source + '\nprint(unique_paths(3, 3))', 'transfer', 'run')
+        self.assertEqual(own_run['output'], '6\n')
         self.assertEqual(own_run['tests'], [])
         self.assertNotIn('efficiency', own_run)
 

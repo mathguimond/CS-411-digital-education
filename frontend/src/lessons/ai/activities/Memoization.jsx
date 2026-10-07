@@ -1,13 +1,44 @@
-import { useState } from 'react'
 import CallTree from '../visualizations/CallTree.jsx'
+import CallTreeBuilder from '../visualizations/CallTreeBuilder.jsx'
 import CodeEditor from '../python/CodeEditor.jsx'
 import AnswerField from './AnswerField.jsx'
 
-export default function Memoization({ answers, onChange, code, onCode, record, onBusyChange }) {
-  const [comparison, setComparison] = useState(false)
+const example = `def fib_memo(n):
+    cache = {}
+
+    def solve(k):
+        if k in cache:             # Reuse before branching.
+            return cache[k]
+        if k < 2:
+            result = k
+        else:
+            result = solve(k - 1) + solve(k - 2)
+        cache[k] = result          # Save before returning.
+        return result
+
+    return solve(n)`
+
+export default function Memoization({ activity, answers, onChange, code, onCode, tree, record, onBusyChange, onResult }) {
+  if (activity.id === 'memo-example') return <>
+    <p>First study this <strong>worked Fibonacci example</strong>. In the naive fib(5) tree, fib(2) is called three times and fib(3) twice. Identical inputs produce identical results, so these branches repeat work.</p>
+    <CallTree input={5} record={record} revealRepeated />
+    <h3>Store once, reuse later</h3><pre className="worked-code">{example}</pre>
+    <p>The dictionary belongs to one top-level request. Every recursive call shares it. A lookup happens before branching; each newly computed result is stored before returning.</p>
+    <CallTree input={5} memoized record={record} revealRepeated />
+    <p className="small muted">A cache hit is still a call, but it does not expand another branch. Here, base-case results are cached too. Under unit-cost arithmetic and dictionary access, only O(n) distinct inputs need computing, with O(n) cache and stack space.</p>
+    <AnswerField id="memo-example-explanation" label="Explain how the lookup and storage order avoids repeating a Fibonacci branch." value={answers['memo-example-explanation']} onChange={onChange} />
+  </>
+  if (activity.id === 'stairs-redundancy') return <>
+    <p>Now inspect <strong>your own Climbing Stairs tree</strong>. Find nodes with identical remaining stairs. Count the total occurrences of one state and how many computations repeat after its first occurrence.</p>
+    <CallTreeBuilder tree={tree} record={record} activityId={activity.id} readOnly />
+    <AnswerField id="stairs-two-count" label="How many times does climb_stairs(2) occur in your tree?" value={answers['stairs-two-count']} onChange={onChange} rows={2} />
+    <AnswerField id="stairs-extra-count" label="How many of those occurrences repeat work after the first computation?" value={answers['stairs-extra-count']} onChange={onChange} rows={2} />
+    <AnswerField id="stairs-redundancy" label="Locate another repeated state. Explain the wasted work and why its result can be reused." value={answers['stairs-redundancy']} onChange={onChange} />
+  </>
   return <>
-    <section className="activity-section"><p className="eyebrow">Activity 1 · Diagnose wasted work</p><h3>Same input, same computation</h3><p>Inspect the naive call tree. Click a node to highlight every call with that input. Count how often <code>fib(2)</code> appears, then explain how much of that work is repeated.</p><CallTree record={record} /><div className="prediction-fields"><div><label htmlFor="repeated-count">Number of fib(2) calls</label><input id="repeated-count" type="number" min="0" value={answers['repeated-count'] ?? ''} onChange={(event) => onChange('repeated-count', event.target.value)} /></div></div><AnswerField id="redundancy-explanation" label="Why is recomputing an identical input unnecessary?" value={answers['redundancy-explanation']} onChange={onChange} /></section>
-    <section className="activity-section"><p className="eyebrow">Activity 2 · Refactor with a cache</p><h3>Keep the result, skip the repeated branch</h3><p>Write <code>fib_memo(n)</code> using a dictionary. Check whether a result is saved before expanding the recursive calls. When you compute a new result, save it before returning.</p><div className="activity-note"><strong>Reason about the order.</strong><p>What happens if the lookup comes after the recursive calls? What happens if you return before saving?</p></div><CodeEditor activity="memoization" code={code} onChange={onCode} record={record} onBusyChange={onBusyChange} /></section>
-    <section className="activity-section"><p className="eyebrow">Activity 3 · Compare and explain</p><h3>Watch a cache hit</h3><button className="secondary" onClick={() => { setComparison(true); record('memoized_trace_revealed') }} disabled={comparison}>Compare with a memoized trace</button>{comparison && <><CallTree memoized record={record} revealRepeated /><div className="comparison-stats"><div><strong>9</strong><span>Naive calls for fib(4)</span></div><div><strong>7</strong><span>Calls with an initially empty cache</span></div><div><strong>2</strong><span>Calls that reuse a saved result</span></div></div><p className="small muted">A cache hit is still a function call, but it does not expand another branch. In this visualization, base-case results are cached too.</p></>}<AnswerField id="complexity-explanation" label="How does caching change the time complexity? What memory does it use?" value={answers['complexity-explanation']} onChange={onChange} />{String(answers['complexity-explanation'] || '').trim() && <details className="concept-recap"><summary>After your attempt: connect this to dynamic programming</summary><p>There are only n + 1 distinct inputs from 0 through n. Under constant-time dictionary access and unit-cost arithmetic, computing each input once gives O(n) time. The cache and deepest chain of recursive calls each use O(n) space.</p><p>This is <strong>top-down dynamic programming</strong>: start with the requested problem and remember the smaller results. A bottom-up approach starts from the base cases and fills results in order.</p><p>Naive Fibonacci repeats branches and takes exponential time; O(2ⁿ) is a useful upper bound. The optimization changes how often a subproblem is computed, while preserving its answer.</p></details>}</section>
+    <p>Your recursive Climbing Stairs code has been copied below. Refactor <code>climb_stairs(n)</code> with a <strong>dictionary cache</strong>. Keep your recurrence and make repeated calls reuse a stored result.</p>
+    <CodeEditor activity="memoization" code={code} onChange={onCode} record={record} onResult={onResult} onBusyChange={onBusyChange} />
+    <AnswerField id="stairs-cache" label="What identifies a cached state? Explain where lookup and storage happen." value={answers['stairs-cache']} onChange={onChange} />
+    <AnswerField id="stairs-complexity" label="Compare naive and memoized runtime growth, and explain cache and stack memory use." value={answers['stairs-complexity']} onChange={onChange} />
   </>
 }
