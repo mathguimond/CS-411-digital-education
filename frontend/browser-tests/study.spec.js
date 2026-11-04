@@ -1,0 +1,240 @@
+import { test, expect } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+
+const lesson = JSON.parse(await readFile(new URL('../../shared/recursion-lesson.json', import.meta.url), 'utf8'))
+const tokenKey = 'dynamic-learning:participant-token'
+const stairs = 'def climb_stairs(n):\n    if n < 2: return 1\n    return climb_stairs(n-1) + climb_stairs(n-2)\n'
+const memo = 'def climb_stairs(n):\n    cache = {}\n    def solve(k):\n        if k not in cache:\n            cache[k] = 1 if k < 2 else solve(k-1) + solve(k-2)\n        return cache[k]\n    return solve(n)\n'
+const grid = 'def unique_paths(r, c):\n    if not r or not c: return 0\n    if r == 1 or c == 1: return 1\n    return unique_paths(r-1,c) + unique_paths(r,c-1)\n'
+const gridMemo = 'def unique_paths(rows, cols):\n    cache = {}\n    def solve(r, c):\n        if (r,c) not in cache:\n            if not r or not c: cache[r,c] = 0\n            elif r == 1 or c == 1: cache[r,c] = 1\n            else: cache[r,c] = solve(r-1,c) + solve(r,c-1)\n        return cache[r,c]\n    return solve(rows,cols)\n'
+
+test.beforeEach(async ({ request }) => { await request.post('http://127.0.0.1:5001/__test__/reset') })
+const authHeaders = async (page) => ({ Authorization: `Bearer ${await page.evaluate((key) => localStorage.getItem(key), tokenKey)}` })
+const records = async (page, request) => (await request.get('http://127.0.0.1:5001/__test__/records', { headers: await authHeaders(page) })).json()
+const next = (page) => page.locator('.part-actions > button').click()
+
+async function enroll(page, request, condition = 'ai') {
+  if (condition === 'control') await request.post('http://127.0.0.1:5001/api/study/enroll', { data: { session_token: 'f'.repeat(64), gender: 'male', age: '23', school_level: 'bachelor', degree: 'Seed participant', referrer: 'jan' } })
+  await page.goto('./#/login')
+  await page.getByRole('radio', { name: 'Female', exact: true }).check()
+  await page.locator('#participant-age').selectOption('22')
+  await page.locator('#participant-level').selectOption('bachelor')
+  await page.locator('#participant-degree').fill('Computer Science')
+  await page.locator('#participant-referrer').selectOption('jan')
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`#/${condition}-lesson$`))
+  await expect(page.getByRole('heading', { name: 'Your starting point' })).toBeVisible()
+}
+async function pretest(page) {
+  await page.locator('input[name="recursion-awareness"][value="yes"]').check()
+  await page.locator('#recursion-before').fill('Solving smaller instances of a problem.')
+  for (const question of lesson.pretest.slice(1)) await page.locator(`input[name="${question.id}"][value="${question.correct ?? '2'}"]`).check()
+  await page.getByRole('button', { name: 'Submit pre-test and start lesson!', exact: true }).click()
+  await expect(page.locator('#intro-base')).toBeVisible()
+}
+async function answer(page, id, text = 'A directly solvable input returns without making another recursive call.') {
+  const question = lesson.questions[id]
+  if (question.kind === 'choice') await page.locator(`input[name="${id}"][value="${question.correct}"]`).check()
+  else await page.locator(`#${id}`).fill(text)
+}
+async function run(page, codeKey, source, passed = true) {
+  await page.locator(`#code-${codeKey}`).fill(source)
+  await page.getByRole('button', { name: 'Run tests', exact: true }).click()
+  if (passed) await expect(page.getByText('All practice checks passed.', { exact: true })).toBeVisible({ timeout: 70000 })
+}
+async function bulb(page, id) {
+  await page.getByRole('button', { name: `Hint for: ${lesson.questions[id].prompt}`, exact: true }).click()
+  await expect(page.getByText('Preparing your hint…')).toHaveCount(0)
+  await expect(page.locator('.chat-transcript .assistant').last()).toBeVisible()
+}
+
+for (const condition of ['ai', 'control']) {
+  test(`${condition}: complete database-backed lesson, question hints, real Python, transfer navigation and reflection`, async ({ page, request }, testInfo) => {
+    const failures = []
+    page.on('pageerror', (error) => failures.push(error.message))
+    await enroll(page, request, condition)
+    await expect(page.locator('#lesson-support')).toHaveCount(0)
+    await expect(page.locator('[role=timer]')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Submit pre-test and start lesson!' })).toBeDisabled()
+    await pretest(page)
+    await expect(page.locator('[role=timer]')).toBeVisible()
+    await expect(page.locator('#intro-base')).toHaveAttribute('rows', '2')
+    await answer(page, 'intro-base')
+    await answer(page, 'intro-reduction')
+    await answer(page, 'intro-stack')
+    await bulb(page, 'intro-stack')
+    if (condition === 'ai') {
+      await page.locator('#tutor-message').fill('What remains pending?')
+      await page.getByRole('button', { name: 'Send follow-up ↗', exact: true }).click()
+      await expect(page.locator('#tutor-message')).toBeDisabled()
+    } else {
+      await page.getByRole('button', { name: 'Reveal next hint', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'All hints used for this question' })).toBeDisabled()
+      await expect(page.getByText('Worked answer', { exact: true })).toHaveCount(0)
+    }
+    await expect(page.getByRole('button', { name: `Hint for: ${lesson.questions['intro-stack'].prompt}`, exact: true })).toBeDisabled()
+    await page.reload()
+    await expect(page.locator('#intro-base')).toHaveValue(/directly solvable/)
+    await expect(page.locator('.chat-transcript .assistant')).toHaveCount(2)
+    await next(page)
+    await expect(page.locator('.tree-builder')).toBeVisible()
+    expect(await page.locator('.tree-builder').evaluate((tree) => tree.getBoundingClientRect().top < document.querySelector('.python-editor').getBoundingClientRect().top)).toBe(true)
+    await page.getByRole('button', { name: 'Add child call', exact: true }).click()
+    await page.locator('#stairs-build-arg-0').fill('3')
+    await answer(page, 'stairs-suitability')
+    await answer(page, 'stairs-recurrence')
+    await answer(page, 'stairs-depth')
+    await run(page, 'stairs', stairs)
+    await expect(page.getByText(/TAB INDENTS/i)).toHaveCount(0)
+    expect(await page.locator('.builder-canvas').evaluate((element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath('build-and-trace.png'), fullPage: true })
+    await next(page) // An incomplete tree must not block progress.
+    await answer(page, 'memo-example-explanation')
+    for (const figure of await page.locator('.tree-scroll').all()) expect(await figure.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+    await next(page)
+    await answer(page, 'stairs-two-count')
+    await answer(page, 'stairs-extra-count')
+    await next(page)
+    await expect(page.locator('#code-memoization')).toHaveValue(stairs)
+    await run(page, 'memoization', memo)
+    await answer(page, 'stairs-main-change')
+    await next(page)
+    await expect(page.locator('#lesson-support')).toBeVisible()
+    for (const id of ['grid-base', 'grid-reduction', 'grid-stack']) await answer(page, id)
+    await bulb(page, 'grid-base')
+    await next(page)
+    await expect(page.locator('#grid-build-arg-0')).toHaveValue('2')
+    await expect(page.locator('#grid-build-arg-1')).toHaveValue('2')
+    await run(page, 'transfer', grid)
+    await expect(page.locator('.test-results')).toBeVisible()
+    await next(page)
+    await expect(page.locator('#code-transferMemo')).toHaveValue(grid)
+    await run(page, 'transferMemo', gridMemo)
+    await page.getByRole('button', { name: /Build and trace/ }).click()
+    await expect(page.locator('#code-transfer')).toHaveValue(grid)
+    await next(page)
+    await expect(page.locator('#code-transferMemo')).toHaveValue(gridMemo)
+    await next(page)
+    await expect(page.getByRole('heading', { name: 'Reflect on your experience' })).toBeVisible()
+    await expect(page.locator('#lesson-support')).toHaveCount(0)
+    const stopped = await page.locator('[role=timer]').innerText()
+    await page.locator('#hint-helpfulness').focus()
+    await page.locator('#hint-helpfulness').press('ArrowRight')
+    await page.locator('#lesson-experience').fill('The short hints helped me decide what to try next.')
+    await page.locator('#recursion-after').fill('A function solves smaller instances until reaching a direct answer.')
+    await expect(page.locator('[role=timer]')).toHaveText(stopped)
+    await next(page)
+    await expect(page.getByRole('heading', { name: 'Thank you for completing the lesson.' })).toBeVisible()
+    const saved = await records(page, request)
+    expect(saved.condition).toBe(condition)
+    expect(saved.degree).toBe('Computer Science')
+    expect(saved.snapshot.surveySubmitted).toBe(true)
+    expect(saved.snapshot.assessment.passed).toBe(true)
+    expect(saved.snapshot.answers['recursion-before']).toContain('smaller instances')
+    expect(saved.snapshot.answers['recursion-after']).toContain('smaller instances')
+    expect(saved.hints).toHaveLength(3)
+    expect(saved.hints[0].context.answers_on_page['intro-base']).toContain('directly solvable')
+    expect(saved.submissions.every((item) => Number.isInteger(item.elapsedMs) && item.elapsedMs >= 0)).toBe(true)
+    expect(saved.events.some((event) => event.type === 'tree_node_edited' && event.changes.args[0] === '3')).toBe(true)
+    expect(saved.submissions.at(-1).elapsedMs).toBe(saved.submissions.at(-2).elapsedMs)
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Thank you for completing the lesson.' })).toBeVisible()
+    expect(failures).toEqual([])
+  })
+}
+
+test('direct links require login and cannot choose a different lesson after assignment', async ({ page, request }, testInfo) => {
+  await page.goto('./#/control-lesson')
+  await expect(page.getByRole('heading', { name: 'Before we begin.' })).toBeVisible()
+  await expect(page).toHaveURL(/#\/login$/)
+  await page.screenshot({ path: testInfo.outputPath('login.png'), fullPage: true })
+  await enroll(page, request)
+  await pretest(page)
+  await page.locator('#intro-base').fill('Keep this draft when an incorrect lesson link is opened.')
+  await page.goto('./#/control-lesson')
+  await expect(page).toHaveURL(/#\/ai-lesson$/)
+  await expect(page.locator('#intro-base')).toHaveValue('Keep this draft when an incorrect lesson link is opened.')
+  await expect(page.locator('[role=timer]')).toBeVisible()
+})
+
+test('a complete tree fits the fixed canvas and remains draggable and checkable', async ({ page, request }) => {
+  await enroll(page, request)
+  await pretest(page)
+  for (const id of ['intro-base', 'intro-reduction', 'intro-stack']) await answer(page, id)
+  await next(page)
+  let number = 1
+  async function fill(nodeNumber, n) {
+    const locator = page.getByRole('button', { name: new RegExp(`^Select call ${nodeNumber === 1 ? 'root' : nodeNumber}:`) })
+    await locator.click()
+    if (nodeNumber !== 1) await page.locator('#stairs-build-arg-0').fill(String(n))
+    let value = 1
+    if (n > 1) {
+      value = 0
+      for (const input of [n - 1, n - 2]) {
+        await locator.click()
+        await page.getByRole('button', { name: 'Add child call', exact: true }).click()
+        value += await fill(++number, input)
+      }
+    }
+    await locator.click()
+    await page.locator('#stairs-build-return').fill(String(value))
+    return value
+  }
+  await fill(1, 4)
+  await page.getByRole('button', { name: 'Check my tree' }).click()
+  await expect(page.getByText('Your tree checks passed.')).toBeVisible()
+  const root = page.getByRole('button', { name: /^Select call root:/ })
+  await root.scrollIntoViewIfNeeded()
+  const bounds = await root.boundingBox()
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+  await page.mouse.down(); await page.mouse.move(bounds.x + bounds.width / 2 + 20, bounds.y + bounds.height / 2 + 10, { steps: 4 }); await page.mouse.up()
+  await root.press('ArrowRight')
+  await page.getByRole('button', { name: 'Check my tree' }).click()
+  await expect(page.getByText('Your tree checks passed.')).toBeVisible()
+  expect(await page.locator('.builder-canvas').evaluate((element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true)
+})
+
+test('Python timeout recovery and failed code still allow a completed attempt', async ({ page, request }) => {
+  await enroll(page, request)
+  await pretest(page)
+  for (const id of ['intro-base', 'intro-reduction', 'intro-stack']) await answer(page, id)
+  await next(page)
+  for (const id of ['stairs-suitability', 'stairs-recurrence', 'stairs-depth']) await answer(page, id)
+  await page.locator('#code-stairs').fill('while True:\n    pass\n')
+  await page.getByRole('button', { name: 'Run tests', exact: true }).click()
+  await expect(page.getByText('This run exceeded 8 seconds and was stopped.')).toBeVisible({ timeout: 70000 })
+  await page.locator('#code-stairs').fill('def climb_stairs(n):\n    return 0\n')
+  await page.getByRole('button', { name: 'Run tests', exact: true }).click()
+  await expect(page.locator('.test-results')).toBeVisible({ timeout: 70000 })
+  await next(page)
+  await expect(page.getByRole('heading', { name: 'Study a worked cache example', exact: true })).toBeVisible()
+})
+
+test('mobile layout, targeted hints and overtime remain usable', async ({ page, request }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await enroll(page, request)
+  await pretest(page)
+  await page.getByRole('button', { name: `Hint for: ${lesson.questions['intro-base'].prompt}`, exact: true }).click()
+  await expect(page.locator('#tutor-message')).toBeVisible()
+  await page.getByRole('button', { name: 'Close hints', exact: true }).first().click()
+  await request.post('http://127.0.0.1:5001/__test__/overtime', { headers: await authHeaders(page) })
+  await page.reload()
+  await expect(page.locator('.overtime-notice')).toContainText('consider using a hint')
+  await expect(page.locator('[role=timer]')).toContainText('31:')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('lesson-mobile.png'), fullPage: true })
+})
+
+test('an interrupted save preserves the answer and retries after reconnecting', async ({ page, request }) => {
+  await enroll(page, request)
+  await pretest(page)
+  await page.route('**/api/study/session', (route) => route.request().method() === 'PUT' ? route.abort() : route.continue())
+  await page.locator('#intro-base').fill('Keep this answer while saving is interrupted.')
+  await expect(page.locator('.save-notice')).toBeVisible({ timeout: 10000 })
+  await page.unroute('**/api/study/session')
+  await page.getByRole('button', { name: 'Retry saving', exact: true }).click()
+  await expect(page.locator('.save-notice')).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('#intro-base')).toHaveValue('Keep this answer while saving is interrupted.')
+  expect((await records(page, request)).snapshot.answers['intro-base']).toContain('saving is interrupted')
+})

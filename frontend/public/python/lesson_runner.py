@@ -22,6 +22,7 @@ class BoundedOutput(io.StringIO):
 
 
 ACTIVITIES = {
+    "transfer-naive": {"function": "unique_paths", "cases": [((0, 0), 0), ((0, 4), 0), ((4, 0), 0), ((1, 1), 1), ((1, 4), 1), ((4, 1), 1), ((2, 2), 2), ((2, 3), 3), ((3, 3), 6)], "memoized": False},
     "fibonacci": {"function": "fib", "cases": [(0, 0), (1, 1), (2, 1), (4, 3), (6, 8), (8, 21)], "memoized": False},
     "stairs": {"function": "climb_stairs", "cases": [(0, 1), (1, 1), (2, 2), (4, 5), (5, 8), (8, 34)], "memoized": False},
     "memoization": {"function": "climb_stairs", "cases": [(0, 1), (1, 1), (2, 2), (4, 5), (6, 13), (10, 89), (20, 10946)], "memoized": True},

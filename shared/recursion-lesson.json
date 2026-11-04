@@ -1,6 +1,6 @@
 {
-  "id": "recursion-ai",
-  "version": "ai-pilot-v3",
+  "id": "recursion-study",
+  "version": "study-v4",
   "title": "Thinking recursively",
   "description": "Recognize the pattern. Build the solution. Make it faster.",
   "parts": [
@@ -18,7 +18,7 @@
       "title": "A smaller version of the same problem",
       "label": "Discover",
       "ai_allowed": true,
-      "support_mode": "concept",
+      "support_mode": "hints",
       "description": "Open the nesting dolls, watch the calls build up, then follow the returns back out.",
       "question": "Explain base cases, recursive reduction, and pending calls or stack unwinding, using the nesting dolls and worked Fibonacci example.",
       "theory": "Recursion solves a problem using smaller instances of the same problem. A base case is handled directly without another recursive call. A recursive case reduces the input and uses the smaller result. Calls wait on a stack until their subproblems return. In the Russian nesting doll analogy, opening a doll reveals a smaller similar doll; the smallest solid doll is the base case. Then results return outward, one waiting call at a time. Use this analogy conversationally and ask one brief check-in question at a time."
@@ -30,8 +30,8 @@
       "ai_allowed": true,
       "support_mode": "hints",
       "description": "Use the worked Fibonacci example to design a naive Climbing Stairs solution, then construct and trace your own call tree.",
-      "question": "There are n stairs, with moves of one or two stairs. Explain why recursion suits this problem, write climb_stairs(n), and construct the full naive call tree for n=5. For zero stairs, count the empty sequence as one way.",
-      "theory": "Climbing Stairs has branching self-similar subproblems: after a move of one or two stairs, count ways to cover the remaining stairs. With the empty sequence counted once, ways(0)=1 and ways(1)=1, and ways(n)=ways(n-1)+ways(n-2) for n>1. The standard naive n=5 tree has 15 calls, returns 8, and reaches five stack frames when the root counts as one. Other valid base-case conventions can expand n=1 into n=0 and n=-1, where negative inputs return zero. Do not reveal these answers or write the learner's function; ask targeted questions about progress, termination, and combining smaller results."
+      "question": "Build a naive climb_stairs(4) call tree, explain suitability and recurrence, identify stack depth, and run your own recursive Python code.",
+      "theory": "For the standard direct base cases n=0 and n=1, climb_stairs(4) returns 5, has 9 calls, reaches four stack frames, and calls state 2 twice. Use only short hints, never final answers or completed code."
     },
     {
       "id": "ai-memoization",
@@ -40,62 +40,565 @@
       "ai_allowed": true,
       "support_mode": "hints",
       "description": "Study a worked Fibonacci cache example, locate redundancy in your own stairs tree, then memoize your own stairs code.",
-      "question": "Explain the worked Fibonacci cache example. In your own Climbing Stairs tree, count repeated states and redundant calls. Refactor climb_stairs(n) with a dictionary and explain time and memory use.",
-      "theory": "In naive fib(5), fib(2) occurs three times and fib(3) twice. A worked example shows lookup before recursion and storage before return. The learner applies that pattern to their own Climbing Stairs code and tree. In the standard stairs(5) tree, stairs(2) occurs three times, so two of those computations repeat work. Memoized Climbing Stairs uses O(n) time, O(n) dictionary space, and O(n) stack depth under unit-cost arithmetic and dictionary access. This is top-down dynamic programming. Guide with small hints; do not provide complete code or the full answers."
+      "question": "Study the worked Fibonacci cache example, count repeated calls in the naive climb_stairs(4) tree, memoize your own code, and identify the main change.",
+      "theory": "For naive stairs(4), state 2 occurs twice and one occurrence repeats work. Dictionary lookup before branching and storage before return avoids recomputation. Memoization uses O(n) time, cache, and stack space under unit-cost arithmetic and dictionary lookup."
     },
     {
       "id": "ai-transfer",
       "title": "A new problem, on your own",
       "label": "Transfer",
+      "ai_allowed": true,
+      "support_mode": "hints",
+      "description": "Apply recursion and memoization to Grid Unique Paths with the same question-specific hints.",
+      "question": "Explain base conditions, reduction, and pending calls using multiple choice. Construct a naive unique_paths(2,2) tree before coding. Run correctness tests, then memoize a copy of your own code. Empty grids have zero paths and a single-cell grid has one path.",
+      "theory": "Paths(r,c)=Paths(r-1,c)+Paths(r,c-1). Empty dimensions return zero; a 1x1 grid returns one. A direct one-axis base case is also valid. With that shortcut the 2x2 tree has no duplicate states; larger test inputs demonstrate overlapping subproblems. Memoization uses O(rows*cols) time/cache and O(rows+cols) stack space under unit-cost arithmetic. Give hints only, never complete answers."
+    },
+    {
+      "id": "reflection",
+      "title": "Reflect on your experience",
+      "label": "Reflect",
       "ai_allowed": false,
       "support_mode": "none",
-      "description": "Apply what you learned to Grid Unique Paths, without AI support, hints, or reference answers.",
-      "question": "Count paths from the top-left to bottom-right of a rows-by-cols grid of cells, moving only right or down, with no obstacles. An empty grid has zero paths; a one-cell grid has one path using no moves. Explain base conditions, reduction, and pending calls before running code. Write unique_paths(rows, cols), construct a naive tree for (3,3), identify overlap, and refactor with a dictionary. Explain runtime and memory in terms of both grid dimensions."
+      "description": "A few final questions after the timed lesson.",
+      "question": "Rate the hints and describe your experience and understanding of recursion."
     }
   ],
   "pretest": [
     {
+      "id": "recursion-awareness",
+      "kind": "choice",
+      "prompt": "Have you ever heard of recursion?",
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes"
+        },
+        {
+          "id": "no",
+          "label": "No"
+        }
+      ],
+      "followUp": {
+        "id": "recursion-before",
+        "when": "yes",
+        "prompt": "Summarize in one short sentence what you think recursion is."
+      }
+    },
+    {
       "id": "trace-baseline",
+      "kind": "choice",
       "prompt": "Given fib(0)=0, fib(1)=1, and fib(n)=fib(n-1)+fib(n-2), what does fib(4) return?",
       "options": [
-        "2",
-        "3",
-        "4",
-        "5"
+        {
+          "id": "0",
+          "label": "2"
+        },
+        {
+          "id": "1",
+          "label": "3"
+        },
+        {
+          "id": "2",
+          "label": "4"
+        },
+        {
+          "id": "3",
+          "label": "5"
+        },
+        {
+          "id": "4",
+          "label": "I don't know"
+        }
       ],
-      "correct": 1
+      "correct": "1"
     },
     {
       "id": "duplicate-baseline",
+      "kind": "choice",
       "prompt": "In the full naive fib(4) call tree, how many times is fib(2) called?",
       "options": [
-        "Once",
-        "Twice",
-        "Three times",
-        "Four times"
+        {
+          "id": "0",
+          "label": "Once"
+        },
+        {
+          "id": "1",
+          "label": "Twice"
+        },
+        {
+          "id": "2",
+          "label": "Three times"
+        },
+        {
+          "id": "3",
+          "label": "Four times"
+        },
+        {
+          "id": "4",
+          "label": "I don't know"
+        }
       ],
-      "correct": 1
+      "correct": "1"
     },
     {
       "id": "complexity-baseline",
+      "kind": "choice",
       "prompt": "How does the runtime of naive recursive Fibonacci grow as n increases?",
       "options": [
-        "Constant",
-        "Logarithmic",
-        "Linear",
-        "Exponential"
+        {
+          "id": "0",
+          "label": "Constant"
+        },
+        {
+          "id": "1",
+          "label": "Logarithmic"
+        },
+        {
+          "id": "2",
+          "label": "Linear"
+        },
+        {
+          "id": "3",
+          "label": "Exponential"
+        },
+        {
+          "id": "4",
+          "label": "I don't know"
+        }
       ],
-      "correct": 3
+      "correct": "3"
     },
     {
-      "id": "memo-experience",
-      "prompt": "Before this lesson, have you implemented recursive memoization using a dictionary?",
+      "id": "python-experience",
+      "kind": "choice",
+      "prompt": "Have you worked with Python, such as implementing functions?",
       "options": [
-        "No, I have not",
-        "I have seen it or followed an example",
-        "Yes, I have implemented it independently"
-      ],
-      "correct": null
+        {
+          "id": "0",
+          "label": "I have not used Python"
+        },
+        {
+          "id": "1",
+          "label": "I have followed examples or done simple Python exercises"
+        },
+        {
+          "id": "2",
+          "label": "I have independently implemented Python functions"
+        },
+        {
+          "id": "3",
+          "label": "I don't know"
+        }
+      ]
     }
+  ],
+  "questions": {
+    "intro-base": {
+      "id": "intro-base",
+      "kind": "text",
+      "prompt": "Explain in your words what the base case is in the Fibonacci sequence."
+    },
+    "stairs-suitability": {
+      "id": "stairs-suitability",
+      "kind": "text",
+      "prompt": "Why is recursion suitable for Climbing Stairs? Identify smaller instances of the same problem."
+    },
+    "stairs-recurrence": {
+      "id": "stairs-recurrence",
+      "kind": "text",
+      "prompt": "State your recurrence and base cases."
+    },
+    "memo-example-explanation": {
+      "id": "memo-example-explanation",
+      "kind": "text",
+      "prompt": "Explain how the lookup and storage order avoids repeating a Fibonacci branch."
+    },
+    "intro-reduction": {
+      "id": "intro-reduction",
+      "kind": "choice",
+      "prompt": "How does the Fibonacci example reduce the problem toward a base case?",
+      "options": [
+        {
+          "id": "0",
+          "label": "It calls the function with n-1 and n-2 until reaching small inputs"
+        },
+        {
+          "id": "1",
+          "label": "It increases n on each call"
+        },
+        {
+          "id": "2",
+          "label": "It repeats the same input indefinitely"
+        },
+        {
+          "id": "3",
+          "label": "It removes the return statement"
+        }
+      ],
+      "correct": "0"
+    },
+    "intro-stack": {
+      "id": "intro-stack",
+      "kind": "choice",
+      "prompt": "What happens to a pending call while its smaller calls execute?",
+      "options": [
+        {
+          "id": "0",
+          "label": "It forgets its input as soon as a child starts"
+        },
+        {
+          "id": "1",
+          "label": "It retains its input and unfinished work, then resumes when a child returns"
+        },
+        {
+          "id": "2",
+          "label": "Every node in the entire tree stays on the stack at once"
+        },
+        {
+          "id": "3",
+          "label": "All waiting calls run simultaneously"
+        }
+      ],
+      "correct": "1"
+    },
+    "stairs-depth": {
+      "id": "stairs-depth",
+      "kind": "choice",
+      "prompt": "For climb_stairs(4), returning directly for n=0 and n=1, what is the maximum number of simultaneous stack frames? Count the root as one.",
+      "options": [
+        {
+          "id": "0",
+          "label": "3"
+        },
+        {
+          "id": "1",
+          "label": "4"
+        },
+        {
+          "id": "2",
+          "label": "5"
+        },
+        {
+          "id": "3",
+          "label": "9"
+        }
+      ],
+      "correct": "1"
+    },
+    "stairs-two-count": {
+      "id": "stairs-two-count",
+      "kind": "choice",
+      "prompt": "In the full naive climb_stairs(4) tree, returning directly for n=0 and n=1, how many calls have input 2?",
+      "options": [
+        {
+          "id": "0",
+          "label": "1"
+        },
+        {
+          "id": "1",
+          "label": "2"
+        },
+        {
+          "id": "2",
+          "label": "3"
+        },
+        {
+          "id": "3",
+          "label": "4"
+        }
+      ],
+      "correct": "1"
+    },
+    "stairs-extra-count": {
+      "id": "stairs-extra-count",
+      "kind": "choice",
+      "prompt": "How many of those input-2 calls repeat work after the first computation?",
+      "options": [
+        {
+          "id": "0",
+          "label": "0"
+        },
+        {
+          "id": "1",
+          "label": "1"
+        },
+        {
+          "id": "2",
+          "label": "2"
+        },
+        {
+          "id": "3",
+          "label": "3"
+        }
+      ],
+      "correct": "1"
+    },
+    "stairs-main-change": {
+      "id": "stairs-main-change",
+      "kind": "choice",
+      "prompt": "What is the main change from the naive function to the memoized function?",
+      "options": [
+        {
+          "id": "0",
+          "label": "Memoization changes which stair sequences are counted"
+        },
+        {
+          "id": "1",
+          "label": "Memoization removes the need for base cases"
+        },
+        {
+          "id": "2",
+          "label": "Memoization stores and reuses results for identical inputs instead of recomputing them"
+        },
+        {
+          "id": "3",
+          "label": "Memoization guarantees no extra memory is used"
+        }
+      ],
+      "correct": "2"
+    },
+    "grid-base": {
+      "id": "grid-base",
+      "kind": "choice",
+      "prompt": "Which base conditions correctly describe this grid problem?",
+      "options": [
+        {
+          "id": "0",
+          "label": "An empty grid has 0 paths and a single-cell grid has 1 path"
+        },
+        {
+          "id": "1",
+          "label": "Every grid has 0 paths"
+        },
+        {
+          "id": "2",
+          "label": "An empty grid has 1 path and a single-cell grid has 0 paths"
+        },
+        {
+          "id": "3",
+          "label": "The function needs no base conditions"
+        }
+      ],
+      "correct": "0"
+    },
+    "grid-reduction": {
+      "id": "grid-reduction",
+      "kind": "choice",
+      "prompt": "Which pair of smaller states can be combined to solve unique_paths(rows, cols)?",
+      "options": [
+        {
+          "id": "0",
+          "label": "(rows+1, cols) and (rows, cols+1)"
+        },
+        {
+          "id": "1",
+          "label": "(rows-1, cols) and (rows, cols-1)"
+        },
+        {
+          "id": "2",
+          "label": "Two copies of (rows, cols)"
+        },
+        {
+          "id": "3",
+          "label": "Only (rows-1, cols-1)"
+        }
+      ],
+      "correct": "1"
+    },
+    "grid-stack": {
+      "id": "grid-stack",
+      "kind": "choice",
+      "prompt": "What does a pending grid call keep while a smaller call executes?",
+      "options": [
+        {
+          "id": "0",
+          "label": "Only the final answer, already known"
+        },
+        {
+          "id": "1",
+          "label": "No state, because its frame is removed immediately"
+        },
+        {
+          "id": "2",
+          "label": "Its current dimensions and unfinished work combining smaller results"
+        },
+        {
+          "id": "3",
+          "label": "A frame for every grid cell simultaneously"
+        }
+      ],
+      "correct": "2"
+    },
+    "stairs-tree": {
+      "id": "stairs-tree",
+      "kind": "tree",
+      "prompt": "Construct the naive call tree for climb_stairs(4)."
+    },
+    "stairs-code": {
+      "id": "stairs-code",
+      "kind": "code",
+      "prompt": "Implement the naive recursive climb_stairs(n) function."
+    },
+    "stairs-memo-code": {
+      "id": "stairs-memo-code",
+      "kind": "code",
+      "prompt": "Memoize your own climb_stairs(n) function with a dictionary."
+    },
+    "grid-tree": {
+      "id": "grid-tree",
+      "kind": "tree",
+      "prompt": "Construct the naive call tree for unique_paths(2,2)."
+    },
+    "grid-code": {
+      "id": "grid-code",
+      "kind": "code",
+      "prompt": "Implement the naive recursive unique_paths(rows, cols) function."
+    },
+    "grid-memo-code": {
+      "id": "grid-memo-code",
+      "kind": "code",
+      "prompt": "Memoize your own unique_paths(rows, cols) function with a dictionary."
+    },
+    "hint-helpfulness": {
+      "id": "hint-helpfulness",
+      "kind": "scale",
+      "prompt": "How helpful did you find the hints?",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "lesson-experience": {
+      "id": "lesson-experience",
+      "kind": "text",
+      "prompt": "How did you feel going through this lesson?"
+    },
+    "recursion-after": {
+      "id": "recursion-after",
+      "kind": "text",
+      "prompt": "Summarize in your own words what recursion is."
+    }
+  },
+  "activities": [
+    [
+      {
+        "id": "diagnostic",
+        "title": "Your prior knowledge",
+        "fields": [
+          "recursion-awareness",
+          "trace-baseline",
+          "duplicate-baseline",
+          "complexity-baseline",
+          "python-experience"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "recursion-components",
+        "title": "Discover the recursive pattern",
+        "fields": [
+          "intro-base",
+          "intro-reduction",
+          "intro-stack"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "stairs-build",
+        "title": "Construct, explain, and code",
+        "fields": [
+          "stairs-suitability",
+          "stairs-recurrence",
+          "stairs-depth"
+        ],
+        "code": "stairs",
+        "runner": "stairs",
+        "tree": "stairs",
+        "run": true,
+        "hintQuestions": [
+          "stairs-tree",
+          "stairs-code"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "memo-example",
+        "title": "Study a worked cache example",
+        "fields": [
+          "memo-example-explanation"
+        ]
+      },
+      {
+        "id": "stairs-redundancy",
+        "title": "Diagnose repeated work",
+        "fields": [
+          "stairs-two-count",
+          "stairs-extra-count"
+        ],
+        "tree": "stairs"
+      },
+      {
+        "id": "stairs-memoization",
+        "title": "Memoize your own solution",
+        "fields": [
+          "stairs-main-change"
+        ],
+        "code": "memoization",
+        "runner": "memoization",
+        "run": true,
+        "hintQuestions": [
+          "stairs-memo-code"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "grid-components",
+        "title": "Explain before executing",
+        "fields": [
+          "grid-base",
+          "grid-reduction",
+          "grid-stack"
+        ]
+      },
+      {
+        "id": "grid-build",
+        "title": "Build and trace",
+        "fields": [],
+        "code": "transfer",
+        "runner": "transfer-naive",
+        "tree": "grid",
+        "run": true,
+        "hintQuestions": [
+          "grid-tree",
+          "grid-code"
+        ]
+      },
+      {
+        "id": "grid-optimize",
+        "title": "Identify overlap and optimize",
+        "fields": [],
+        "code": "transferMemo",
+        "runner": "transfer",
+        "tree": "grid",
+        "run": true,
+        "hintQuestions": [
+          "grid-tree",
+          "grid-memo-code"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "post-survey",
+        "title": "Your experience",
+        "fields": [
+          "hint-helpfulness",
+          "lesson-experience",
+          "recursion-after"
+        ]
+      }
+    ]
   ]
 }

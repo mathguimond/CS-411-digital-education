@@ -1,87 +1,75 @@
 # Backend
 
-Flask API on Heroku, using the Google Gen AI Python SDK. See the
-[project guide](../README.md) for local setup and root-level deployment.
+Flask on Heroku connects to the attached Postgres database through `DATABASE_URL`.
+SQLAlchemy uses psycopg and TLS; the connection pool permits two regular and one
+overflow connection per worker. Local development uses a gitignored SQLite file.
+The versioned migration runs locally or through `flask --app app.main db-upgrade`;
+the Heroku Procfile runs that command in its release phase.
 
-Copy `.env.example` to `.env`; set `GEMINI_API_KEY`, `GEMINI_MODEL`, and
-`ALLOWED_ORIGINS`. Run `python -m flask --app app.main run` from this directory.
-Production uses the root `Procfile`; the root `shared/` content folder is required.
+The API stores demographics, assignment, current work, every section submission,
+events, code runs, tree edits, and full hint conversations. Participant tokens are
+256-bit random values held by the browser; only their hashes are stored. There
+are no usernames or passwords and no public results-list endpoint.
 
-## API
+## Endpoints
 
-- `GET /api/health`: returns `status` and `ai_configured`, without calling Gemini.
-- `POST /api/ai/chat`: takes JSON below and returns `{ "reply": "..." }`.
-
-```json
-{
-  "condition": "ai",
-  "step_id": "ai-practice",
-  "message": "Can I have a hint?",
-  "learner_context": "Optional current attempt, at most 6000 characters",
-  "history": [
-    { "role": "user", "content": "What is recursion?" },
-    { "role": "assistant", "content": "A function solving smaller versions of its problem." }
-  ]
-}
-```
-
-Messages have at most 4,000 characters. History has at most 12 messages / 16,000
-characters, alternating user and assistant in complete turns. Requests have a
-32 KB limit. Gemini uses server-owned lesson context and a 20-second timeout with
-automatic retries disabled.
-
-The five API part IDs come from the common `shared/recursion-lesson.json`: `ai-pretest`,
-`ai-introduction`, `ai-practice`, `ai-memoization`, and `ai-transfer`. The server
-rejects assessment help with HTTP 403 and `error_code: "ai_disabled"` when a part
-has `ai_allowed: false`. This applies to both `ai-pretest` and `ai-transfer`; no
-Gemini request is made. The introduction and algorithm practice remain available,
-with conceptual or hints-only instructions selected from the curriculum.
-Clients cannot send replacement system instructions. These practice prompt policies still need a live pilot;
-there is no authenticated server-side record of a participant's assessment phase.
-
-Python execution and correctness checks happen in the browser, not this API.
-Deploy the repository root, including `shared/recursion-lesson.json` and the legacy
-`shared/lesson.json` API setup content, whenever part IDs or tutor context changes.
-Control hints are loaded only by the frontend from `shared/control-support.json`;
-control lessons never call this API.
-
-Errors have an `error` field: 400 invalid input, 403 disallowed browser origin or assessment help,
-413 oversized request, 429 rate limit, 502 provider failure, 503 missing config.
-Provider failures also include a safe `error_code`, such as `model_unavailable`,
-`authentication_failed`, `quota_exceeded`, or `provider_timeout`. Heroku logs show
-the category and provider HTTP status; raw provider bodies, keys, and learner text
-are not logged or returned.
-
-## Diagnosing a deployed chat failure
-
-`ai_configured: true` checks that the key and model variables are present, not that
-Gemini accepts them. Open Heroku **More → View logs**, or run:
-
-```text
-heroku logs --tail --app YOUR-APP-NAME
-```
-
-Send one chat message, then find `Tutor request failed reason=...`.
-
-| Reason | What to check |
+| Endpoint | Purpose |
 | --- | --- |
-| `authentication_failed` | Replace invalid/expired Gemini credentials in `GEMINI_API_KEY`. |
-| `permission_denied` | API key restrictions and project/model access in Google AI Studio. |
-| `model_unavailable` | Exact `GEMINI_MODEL` identifier and availability for your project. |
-| `quota_exceeded` | Gemini rate limits, quota, and billing for the key's project. |
-| `billing_required` | Billing/credits in the Gemini project's account. |
-| `invalid_provider_request` | SDK/model parameter compatibility and project prerequisites. |
-| `provider_timeout` | Gemini latency; the current HTTP timeout is 20 seconds. |
-| `output_limit` | The model's generation/thinking budget exhausted the token limit. |
-| `response_blocked` | Gemini blocked generation; rephrase the question. |
-| `provider_unavailable` | Transient network/provider availability; retry later. |
+| `GET /api/health` | Reads the database assignment table and reports AI configuration |
+| `POST /api/study/enroll` | Validates demographics and atomically assigns a condition |
+| `GET /api/study/session` | Restores own progress, server clock, hint use, and conversations |
+| `PUT /api/study/session` | Saves a revisioned snapshot and idempotent event batch |
+| `POST /api/study/checkpoint` | Saves a Continue submission, validates required responses, and advances |
+| `POST /api/study/hints` | Returns a fixed or AI hint according to the stored assignment |
+| `POST /api/ai/chat` | Authenticated AI-only alias for the hint endpoint |
 
-The browser's Network tab shows `error_code` in the failed request's JSON response.
-Redeploy the backend after changing this code; the existing frontend already shows
-the readable `error` field. See [Google's troubleshooting guide](https://ai.google.dev/gemini-api/docs/troubleshooting).
+All endpoints except enrollment and health require `Authorization: Bearer TOKEN`.
+Enrollment includes a browser-generated `session_token` plus `gender`, `age`,
+`school_level`, `degree`, and `referrer`. Reusing the same token retries enrollment
+without adding another participant. The server ignores any claimed condition.
 
-The endpoint is public and rate-limited, with no participant authentication. CORS
-does not prevent direct non-browser calls. In-memory limits are per-process;
-configure `RATELIMIT_STORAGE_URI` with Redis for limits shared across workers/dynos.
+Save requests contain `id`, `revision`, `snapshot`, and up to 25 `events`.
+Checkpoint requests contain `id`, `revision`, `activityId`, and `snapshot`.
+Retries reuse the identifier; a stale revision returns 409 without overwriting work.
+Completion/unlocking flags are owned by checkpoints, not ordinary draft saves.
 
-Run `python -m unittest discover -s tests -v`. Tests use mocks; no real key is needed.
+Hint requests contain `id`, `activityId`, `questionId`, and optionally `message`.
+The server verifies that the question belongs to the activity and that the activity
+is unlocked. Text/MCQ questions have two replies, and code/tree questions have four.
+Follow-ups share the same budget. Requests reserve a slot while Gemini is running;
+failed provider calls do not spend it. Stored replies survive refresh or response
+loss. Fixed hints use the same budgets and contain no worked solutions.
+
+Gemini receives the selected question, current work/answers on the page, and prior
+hint conversations. Server instructions require at most two sentences, and output
+is shortened to enforce that limit. Learner text is treated as untrusted input.
+Pre-test and final reflection have no hints; transfer supports hints and code tests.
+
+`participants.pretest_completed_at` and `transfer_completed_at` own the wall clock.
+Every submission stores elapsed milliseconds since the first timestamp. Passing
+30 minutes never blocks submission; the elapsed clock stops at transfer completion.
+Both client occurrence time and server receipt time are retained for events.
+
+## Configuration and operation
+
+Copy `.env.example` to `.env` locally. Keep Gemini and database credentials only
+on the backend. Heroku supplies `DATABASE_URL` for the attached database. Retain
+`GEMINI_API_KEY`, `GEMINI_MODEL`, and allowed GitHub Pages origin(s). Heroku startup
+requires Postgres; it never silently falls back to an ephemeral SQLite database.
+
+The source lesson and study settings live in root `shared/`, so deploy the whole
+repository. The [project guide](../README.md) contains the deployment sequence.
+No code in the API executes learner Python; the frontend worker performs tests.
+
+Provider errors use safe categories such as `model_unavailable`, `quota_exceeded`,
+`provider_timeout`, and `output_limit`. Logs contain the category/status, not keys,
+learner messages, or raw provider bodies. Database failures return a retryable
+503 without exposing connection details. `CHAT_RATE_LIMIT` applies per participant
+to study hint requests; hard question budgets remain in Postgres across restarts.
+
+Run `.venv/Scripts/python.exe -m unittest discover -s tests -v` on Windows, or
+`python -m unittest discover -s tests -v` elsewhere. Tests use isolated SQLite
+databases by default. CI sets `TEST_DATABASE_URL` to a dedicated Postgres test
+database and checks migrations and concurrent requests in private temporary schemas.
+Never point that variable at study data. Browser-only fixture routes under
+`/__test__/` exist exclusively in `tests/browser_server.py`, outside the production app.

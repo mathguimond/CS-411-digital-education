@@ -1,0 +1,17 @@
+{
+  "gender": [{"id": "male", "label": "Male"}, {"id": "female", "label": "Female"}],
+  "minimumAge": 18,
+  "maximumIndividualAge": 65,
+  "olderAgeOption": "66+",
+  "schoolLevels": [
+    {"id": "secondary", "label": "Secondary school"},
+    {"id": "bachelor", "label": "Bachelor's"},
+    {"id": "master", "label": "Master's"},
+    {"id": "doctorate", "label": "Doctorate"},
+    {"id": "other", "label": "Other / not currently studying"}
+  ],
+  "referrers": [{"id": "mathieu", "label": "Mathieu"}, {"id": "jan", "label": "Jan"}, {"id": "victor", "label": "Victor"}],
+  "lessonTargetMs": 1800000,
+  "hintLimits": {"text": 2, "choice": 2, "tree": 4, "code": 4},
+  "hintSentenceLimit": 2
+}

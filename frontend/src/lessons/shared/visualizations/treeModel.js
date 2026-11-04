@@ -1,8 +1,15 @@
 export const TREE_WIDTH = 1440
 export const TREE_HEIGHT = 780
 
-export function createCallTree(kind) {
-  return { kind, nodes: [{ id: 'root', parentId: null, children: [], depth: 0, args: kind === 'grid' ? ['3', '3'] : ['5'], value: '', x: TREE_WIDTH / 2, y: 45 }] }
+export function createCallTree(kind, inputs = kind === 'grid' ? [2, 2] : [4]) {
+  return { kind, nodes: [{ id: 'root', parentId: null, children: [], depth: 0, args: inputs.map(String), value: '', x: TREE_WIDTH / 2, y: 45 }] }
+}
+
+export function treeViewport(nodes) {
+  const left = Math.min(...nodes.map((node) => node.x)) - 95, right = Math.max(...nodes.map((node) => node.x)) + 95
+  const top = Math.min(...nodes.map((node) => node.y)) - 45, bottom = Math.max(...nodes.map((node) => node.y)) + 50
+  const width = Math.max(500, right - left), height = Math.max(360, bottom - top)
+  return `${(left + right - width) / 2} ${top} ${width} ${height}`
 }
 
 export function addChild(tree, parentId) {

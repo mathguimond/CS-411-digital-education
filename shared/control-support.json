@@ -1,89 +1,93 @@
 {
-  "version": "fixed-hints-v1",
-  "activities": {
-    "recursion-components": {
-      "hints": [
-        "Find the smallest input that can return directly. Then explain how each recursive step gets closer to that input.",
-        "Follow one call while a smaller call runs. What must it remember, and what work is still waiting for a returned result?"
-      ],
-      "solution": {
-        "paragraphs": [
-          "Base case: the smallest solid doll can be handled without opening another doll. In Fibonacci, fib(0)=0 and fib(1)=1 return directly.",
-          "Recursive reduction: each opened doll reveals a smaller instance of the same task. For Fibonacci, inputs n-1 and n-2 move toward the base cases, and their results are added.",
-          "Pending calls: every active call keeps its own input and local state. A parent pauses while its child executes, then resumes with the returned result. For fib(4), the root needs the results of fib(3) and fib(2) before it can add them and return 3. Unwinding removes one finished frame at a time. Only the active path is on the stack at once."
-        ]
-      }
-    },
-    "stairs-design": {
-      "hints": [
-        "Consider the smallest numbers of stairs. Count the empty sequence once when no stairs remain.",
-        "Split the sequences by their first move. After taking one stair or two stairs, what remaining version of the same problem must you solve?"
-      ],
-      "solution": {
-        "paragraphs": [
-          "Let ways(n) count sequences of one-step or two-step moves. There is one empty sequence for n=0 and one sequence for n=1. For n>1, every sequence starts with either a one-step move or a two-step move, giving ways(n)=ways(n-1)+ways(n-2). The two groups do not overlap.",
-          "The code handles the base cases directly, reduces the input, and adds the results of the two smaller calls. For n=5 it returns 8."
-        ],
-        "code": "def climb_stairs(n):\n    if n < 2:                    # One way for 0 or 1 stair.\n        return 1\n    return (climb_stairs(n - 1)   # First move: one stair.\n            + climb_stairs(n - 2))  # First move: two stairs.\n"
-      }
-    },
-    "stairs-trace": {
-      "hints": [
-        "Use the base cases in your function. Each non-base call should have a child for each allowed first move. Enter the remaining stairs, not the number of stairs already climbed.",
-        "Compute leaf return values first, then combine child results upward. Stack depth counts the calls on one active root-to-leaf path, not every call in the tree."
-      ],
-      "solution": {
-        "paragraphs": [
-          "Using direct base cases at n=0 and n=1, climb_stairs(5) branches into (4) and (3). Continue subtracting one and two at each non-base node. Base calls return 1; each parent adds its two child returns. The root returns 8.",
-          "This tree has 15 calls and a maximum of 5 simultaneous stack frames, counting the root. For example, (5) waits while the path (4), (3), (2), (1) executes. A waiting call retains its input and its unfinished addition. Step through the reference tree to follow the pending frames and returned counts. A valid implementation that expands n=1 into n=0 and n=-1 has a different tree and depth."
-        ],
-        "tree": {
-          "variant": "stairs",
-          "input": 5
-        }
-      }
-    },
-    "memo-example": {
-      "hints": [
-        "Two nodes with the same Fibonacci input solve the same subproblem, even if their parents differ.",
-        "Locate the dictionary lookup before recursion and the insertion before return in the worked code. Which line runs when an identical input is seen again?"
-      ],
-      "solution": {
-        "paragraphs": [
-          "The naive fib(5) tree contains three fib(2) calls and two fib(3) calls. Repeating an input repeats the same computation.",
-          "The first call computes the result and stores cache[k]. Later calls with the same k return that value immediately, so their subtrees are not expanded again. The dictionary is shared by recursive calls within one top-level request. Lookup comes before branching and storage comes before return.",
-          "Under unit-cost arithmetic and dictionary access, O(n) distinct inputs take O(n) time, O(n) cache space, and O(n) maximum stack space. This is top-down dynamic programming."
-        ]
-      }
-    },
-    "stairs-redundancy": {
-      "hints": [
-        "Find every node whose remaining-stairs input is 2. Count occurrences of the same input throughout the whole tree.",
-        "If a state appears k times, one computation is necessary and k-1 occurrences repeat it. Look for another repeated remaining-stairs input."
-      ],
-      "solution": {
-        "paragraphs": [
-          "In the standard naive climb_stairs(5) tree, climb_stairs(2) appears three times: two occurrences repeat work after the first. climb_stairs(3) appears twice, giving one repeated computation.",
-          "The tree has 15 calls but only six distinct inputs: 0 through 5. Nine calls revisit an input already encountered. The input completely determines the returned count, so a cached count can replace recomputing that state. Repeated non-base states also repeat entire descendant branches. These counts describe the standard direct n=0/n=1 base-case tree; compare it with your own chosen base conditions."
-        ],
-        "tree": {
-          "variant": "stairs",
-          "input": 5
-        }
-      }
-    },
-    "stairs-memoization": {
-      "hints": [
-        "All recursive calls in one request must share a dictionary keyed by the remaining number of stairs. Check it before making smaller calls.",
-        "After computing a base case or combining smaller results, put that result in the dictionary before returning it. Keep both base-case and recursive returns consistent."
-      ],
-      "solution": {
-        "paragraphs": [
-          "The outer function creates a fresh dictionary for each top-level request. The nested recursive function shares it, uses the remaining stairs as its key, and performs lookup before branching. Every new result is stored before return.",
-          "Naive branching has exponential runtime growth. Memoization computes each of O(n) distinct inputs once, reducing time to O(n) under unit-cost arithmetic and dictionary access. The cache uses O(n) space, and the recursion stack can still reach O(n) depth."
-        ],
-        "code": "def climb_stairs(n):\n    cache = {}                   # Shared within this request.\n\n    def solve(k):\n        if k in cache:           # Look up before branching.\n            return cache[k]\n        if k < 2:\n            result = 1\n        else:\n            result = solve(k - 1) + solve(k - 2)\n        cache[k] = result        # Save before returning.\n        return result\n\n    return solve(n)\n"
-      }
-    }
+  "version": "fixed-hints-v2",
+  "questions": {
+    "intro-base": [
+      "Look for the return path that makes no smaller call. Which Fibonacci inputs can be handled directly?",
+      "A base case should return a known result rather than ask for more results. Relate that stopping point to the smallest solid doll."
+    ],
+    "intro-reduction": [
+      "Compare the input of a parent call with its child calls. Decide which choice consistently moves toward a stopping point.",
+      "A recursive reduction must eventually reach an input handled directly. Increasing or repeating the input cannot guarantee that progress."
+    ],
+    "intro-stack": [
+      "Pause the animation while a child is active and inspect the waiting frames. What information will each parent need when the child returns?",
+      "Distinguish the complete call tree from the single active path. A waiting parent still has unfinished work after the child produces a result."
+    ],
+    "stairs-suitability": [
+      "Imagine grouping stair sequences by their first move. Does the remaining task have the same structure as the original task?",
+      "Compare the remaining stairs after each allowed first move. Explain what those smaller tasks have in common with the original one."
+    ],
+    "stairs-recurrence": [
+      "Start with the smallest stair counts and think about the empty sequence. Then describe how allowed first moves partition the remaining possibilities.",
+      "Check that each recursive input becomes smaller and that the groups you combine do not overlap. Match each group to its remaining-stairs state."
+    ],
+    "stairs-depth": [
+      "Count frames along one root-to-leaf path, including the original call. Do not count the whole tree.",
+      "Use the stated direct base cases when choosing the deepest path. Follow the reduction that reaches a base case in the most calls."
+    ],
+    "memo-example-explanation": [
+      "Locate the dictionary lookup and notice whether it occurs before or after recursive calls. What work disappears when a result is already stored?",
+      "Follow the path taken by a repeated input. Explain why a new result must be saved before its call returns."
+    ],
+    "stairs-two-count": [
+      "Find every node whose remaining-stairs input is 2. Include occurrences under different parents in the full standard tree.",
+      "Count identical inputs rather than their returned values. Use the standard direct n=0 and n=1 base cases stated in the question."
+    ],
+    "stairs-extra-count": [
+      "Separate the first computation of a state from later visits. Only the later visits repeat that computation.",
+      "If a state occurs several times, one occurrence still has to compute it. Compare the total occurrences with that necessary first occurrence."
+    ],
+    "stairs-main-change": [
+      "Compare what happens when each function receives an input it has already seen. The problem being counted stays the same.",
+      "Look for the part that replaces repeated calculation with a saved result. Check whether that removes the need for base cases or changes the answer."
+    ],
+    "grid-base": [
+      "Distinguish a grid with no cells from a grid whose start and finish are the same cell. Think about valid sequences of moves in each situation.",
+      "A base case should give a path count without asking for another subproblem. Compare the choices against the input conventions in the task."
+    ],
+    "grid-reduction": [
+      "A permitted first move changes one grid dimension at a time. Identify the remaining problem after each kind of move.",
+      "The two groups of paths can be distinguished by their first move. Choose smaller states that represent those groups without keeping the original input unchanged."
+    ],
+    "grid-stack": [
+      "Imagine pausing the parent while just one smaller grid call runs. What remains unfinished in the parent?",
+      "Track the active path rather than every grid cell. A waiting call needs enough state to combine the smaller results when they return."
+    ],
+    "stairs-tree": [
+      "Begin with the given root input and follow one permitted first move. Record remaining stairs in each child rather than stairs already climbed.",
+      "Every non-base call must represent both allowed first moves. Check that each child input is smaller than its parent.",
+      "Stop expanding a call when your chosen base condition applies. Assign its return value before working back toward the root.",
+      "Combine child returns at their parent and trace one active path. Calls on other branches are not simultaneous stack frames."
+    ],
+    "stairs-code": [
+      "Start by deciding which inputs your function can answer directly. Make those branches return before any further recursion.",
+      "Group sequences by their first move and solve the remaining task recursively. Check that every recursive argument makes progress.",
+      "A recursive call produces a value that its parent needs to use. Inspect whether every branch returns a count and the parent combines the smaller counts.",
+      "Use the failed input to trace your function by hand. Compare its base condition, child arguments, and returned combination with your tree."
+    ],
+    "stairs-memo-code": [
+      "Identify the value that completely describes a remaining-stairs state. Recursive calls within one request need to share saved results.",
+      "Inspect whether the cache is checked before smaller calls are expanded. A lookup after recursion cannot avoid that work.",
+      "Follow a newly computed result through the function. It needs to be stored before the call returns.",
+      "Compare results and call counts on a larger test input. Check whether repeated states return from the cache instead of recomputing their branches."
+    ],
+    "grid-tree": [
+      "Start with the root dimensions shown in the task. For each permitted first move, identify the smaller remaining grid.",
+      "Each non-base call needs a branch for each permitted direction. Check which dimension changes along each edge.",
+      "Stop branching when one of your chosen base conditions applies. Enter those return values before combining results upward.",
+      "Add the child returns at each parent and inspect the path back to the root. The small tree checks your recurrence even when your base cases avoid repeated states here."
+    ],
+    "grid-code": [
+      "Translate your selected base conditions into return paths before adding recursion. Test the empty-grid and smallest non-empty inputs first.",
+      "Consider the remaining grid after each permitted first move. Check that each recursive call reduces the corresponding dimension.",
+      "Every branch must return a path count that its parent can combine. Compare a failing small input with the tree you constructed.",
+      "Use the labels in the test results to distinguish a wrong output from excessive repeated work. First make the recursive path count correct on small grids."
+    ],
+    "grid-memo-code": [
+      "Identify all input values needed to distinguish one grid state from another. A cache key must distinguish states that can have different answers.",
+      "Check for a saved state before making smaller recursive calls. All calls in the same request must share that cache.",
+      "Follow a newly computed count to its return statement. Make sure the count is stored before that return.",
+      "A small grid may hide repeated work, so inspect the larger test cases. Look for repeated states expanding again instead of returning their saved counts."
+    ]
   }
 }

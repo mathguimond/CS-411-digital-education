@@ -1,88 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createLessonSession, currentActivity, studyMetrics } from './lessonState.js'
+import { useCallback, useEffect, useState } from 'react'
+import { useStudyAuth } from '../../../auth/authContext.js'
+import { currentActivity } from './lessonState.js'
 
-export default function useLessonStudy(version, condition, supportVersion) {
-  const storageKey = `dynamic-learning:${condition}:${version}`
-  const [session, setSession] = useState(() => {
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(storageKey))
-      if (saved?.condition === condition && saved.lessonVersion === version && saved.schemaVersion === 3 && (saved.supportVersion ?? null) === supportVersion && Array.isArray(saved.events) && saved.answers && saved.code && saved.trees && saved.completedActivities) return saved
-    } catch { /* Continue in memory if browser storage is unavailable. */ }
-    return createLessonSession(version, condition, supportVersion)
-  })
-  const current = useRef(session)
-  const lastActivity = useRef(0)
-  const lastEdit = useRef({})
-
+export default function useLessonStudy() {
+  const { store } = useStudyAuth()
+  const [, redraw] = useState(0)
+  useEffect(() => store.subscribe(() => redraw((value) => value + 1)), [store])
+  useEffect(() => store.start(), [store])
   useEffect(() => {
-    current.current = session
-    try { sessionStorage.setItem(storageKey, JSON.stringify(session)) } catch { /* Export is still available. */ }
-  }, [session, storageKey])
-
-  useEffect(() => {
-    let previous = Date.now()
-    lastActivity.current = previous
-    const interact = () => { lastActivity.current = Date.now() }
-    const visibility = () => { previous = Date.now() }
-    const save = () => { try { sessionStorage.setItem(storageKey, JSON.stringify(current.current)) } catch { /* Optional browser storage. */ } }
+    let lastInput = Date.now(), previous = Date.now()
+    const interact = () => { lastInput = Date.now() }
     const timer = setInterval(() => {
       const now = Date.now(), elapsed = now - previous
       previous = now
-      if (document.visibilityState !== 'visible' || now - lastActivity.current > 60000 || current.current.transferSubmitted) return
-      const part = current.current.partIndex
-      const activityId = currentActivity(current.current).id
-      const focused = document.activeElement
-      const activity = !focused?.disabled && focused?.dataset.codeActivity
-      setSession((value) => ({ ...value, activeMsByPart: { ...value.activeMsByPart, [part]: (value.activeMsByPart[part] || 0) + elapsed },
-        activeMsByActivity: { ...value.activeMsByActivity, [activityId]: (value.activeMsByActivity[activityId] || 0) + elapsed },
-        activeMsByEditor: activity ? { ...value.activeMsByEditor, [activity]: (value.activeMsByEditor?.[activity] || 0) + elapsed } : value.activeMsByEditor,
+      if (document.visibilityState !== 'visible' || now - lastInput > 60000 || store.session.transferSubmitted || store.busy === 'checkpoint') return
+      const part = store.session.partIndex, activity = currentActivity(store.session).id, editor = document.activeElement?.dataset.codeActivity
+      store.update((session) => ({ ...session,
+        activeMsByPart: { ...session.activeMsByPart, [part]: (session.activeMsByPart[part] || 0) + elapsed },
+        activeMsByActivity: { ...session.activeMsByActivity, [activity]: (session.activeMsByActivity[activity] || 0) + elapsed },
+        activeMsByEditor: editor ? { ...session.activeMsByEditor, [editor]: (session.activeMsByEditor[editor] || 0) + elapsed } : session.activeMsByEditor,
       }))
-    }, 1000)
-    for (const event of ['pointerdown', 'keydown', 'pointermove']) document.addEventListener(event, interact, { passive: true })
-    window.addEventListener('pagehide', save)
-    document.addEventListener('visibilitychange', visibility)
-    return () => {
-      clearInterval(timer)
-      for (const event of ['pointerdown', 'keydown', 'pointermove']) document.removeEventListener(event, interact)
-      window.removeEventListener('pagehide', save)
-      document.removeEventListener('visibilitychange', visibility)
-    }
-  }, [storageKey])
-
+    }, 5000)
+    for (const type of ['pointerdown', 'keydown', 'pointermove']) document.addEventListener(type, interact, { passive: true })
+    return () => { clearInterval(timer); for (const type of ['pointerdown', 'keydown', 'pointermove']) document.removeEventListener(type, interact) }
+  }, [store])
+  const setSession = useCallback((change) => store.update(change), [store])
   const record = useCallback((type, details = {}) => {
-    const event = { id: crypto.randomUUID(), type, timestamp: new Date().toISOString(), activityId: currentActivity(current.current).id, ...details }
-    setSession((value) => ({ ...value, events: [...value.events, event],
-      lastResults: type === 'code_run_finished' || type === 'code_run_failed' ? { ...value.lastResults, [details.activity]: type === 'code_run_finished' ? details.result : { error: details.reason, tests: [] } } : value.lastResults,
-    }))
-  }, [])
-
+    store.record(type, details)
+    if (type === 'code_run_finished' || type === 'code_run_failed' && details.failureCode === 'execution_timeout') {
+      store.update((session) => ({ ...session, codeRuns: { ...session.codeRuns, [details.codeKey]: true }, lastResults: { ...session.lastResults, [details.codeKey]: details.result || { tests: [], analysis: {}, passed: false, error: details.reason } } }))
+    }
+  }, [store])
   const answer = useCallback((id, value) => {
-    const now = Date.now()
-    if (now - (lastEdit.current[id] || 0) > 700) record('response_edited', { field: id })
-    lastEdit.current[id] = now
-    setSession((previous) => ({ ...previous, answers: { ...previous.answers, [id]: value } }))
-  }, [record])
-
-  const code = useCallback((activity, source) => {
-    const now = Date.now(), key = `code-${activity}`
-    if (now - (lastEdit.current[key] || 0) > 700) record('code_edited', { activity })
-    lastEdit.current[key] = now
-    setSession((previous) => ({ ...previous, code: { ...previous.code, [activity]: source },
-      lastResults: previous.lastResults[activity] ? { ...previous.lastResults, [activity]: { ...previous.lastResults[activity], codeChangedSinceRun: true } } : previous.lastResults,
-    }))
-  }, [record])
-
-  const download = useCallback(() => {
-    const value = current.current
-    const exported = { ...value }
-    delete exported.chatHistory
-    const blob = new Blob([JSON.stringify({ ...exported, metrics: studyMetrics(value) }, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url; anchor.download = `dynamic-learning-${value.condition}-${value.sessionId}.json`
-    document.body.append(anchor); anchor.click(); anchor.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }, [])
-
-  return { session, setSession, record, answer, code, download }
+    store.update((session) => ({ ...session, answers: { ...session.answers, [id]: value } }))
+    store.record('response_edited', { questionId: id, value })
+  }, [store])
+  const code = useCallback((key, source) => {
+    store.update((session) => ({ ...session, code: { ...session.code, [key]: source } }))
+    store.record('code_edited', { codeKey: key, source })
+  }, [store])
+  return { session: store.session, setSession, record, answer, code, store }
 }

@@ -1,17 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { ACTIVITIES } from '../src/lessons/shared/activities/activityPlan.js'
+import { lesson } from '../src/lessons/shared/content.js'
 
-const curriculum = JSON.parse(await readFile(new URL('../../shared/recursion-lesson.json', import.meta.url), 'utf8'))
 const support = JSON.parse(await readFile(new URL('../../shared/control-support.json', import.meta.url), 'utf8'))
-
-test('every supported activity has two static hints and a complete fallback, with no assessment answers', () => {
-  const allowed = curriculum.parts.flatMap((part, i) => part.ai_allowed ? ACTIVITIES[i].map((activity) => activity.id) : [])
-  assert.deepEqual(Object.keys(support.activities).sort(), allowed.sort())
-  for (const activity of Object.values(support.activities)) {
-    assert.equal(activity.hints.length, 2)
-    assert.ok(activity.hints.every((hint) => typeof hint === 'string' && hint.trim()))
-    assert.ok(activity.solution.paragraphs.length > 0)
+const config = JSON.parse(await readFile(new URL('../../shared/study-config.json', import.meta.url), 'utf8'))
+test('every enabled question has exactly its allowed short hints and no worked solutions', () => {
+  const expected = new Set(lesson.activities.flatMap((activities, index) => lesson.parts[index].ai_allowed ? activities.flatMap((activity) => [...activity.fields, ...activity.hintQuestions || []]) : []))
+  assert.deepEqual(Object.keys(support.questions).sort(), [...expected].sort())
+  assert.equal(JSON.stringify(support).includes('solution'), false)
+  for (const [id, hints] of Object.entries(support.questions)) {
+    assert.equal(hints.length, config.hintLimits[lesson.questions[id].kind])
+    for (const hint of hints) assert.ok((hint.match(/[.!?](?=\s|$)/g) || []).length <= 2, `${id}: ${hint}`)
   }
 })

@@ -24,3 +24,5 @@ frontend/dist/
 .pytest_cache/
 playwright-report/
 test-results/
+backend/instance/
+*.sqlite3

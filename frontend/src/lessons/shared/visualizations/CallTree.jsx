@@ -20,7 +20,7 @@ export default function CallTree({ input = 4, variant = 'fibonacci', memoized = 
 
   return <section className="interactive-figure call-tree-figure" aria-label={`${memoized ? 'Memoized' : 'Naive'} ${subject} call tree`}>
     <div className="figure-heading"><span className="eyebrow">{memoized ? 'Reuse a cached result' : 'Follow each call'} · {functionName}({input})</span><span className="figure-counter">{playback.index + 1} / {trace.events.length}</span></div>
-    <div className="tree-scroll"><svg viewBox={`0 0 ${layout.width} ${layout.height}`} style={{ minWidth: layout.width }} role="group" aria-label={`${subject} call tree. Click a node to highlight calls with the same input.`}>
+    <div className="tree-scroll"><svg viewBox={`0 0 ${layout.width} ${layout.height}`} preserveAspectRatio="xMidYMid meet" role="group" aria-label={`${subject} call tree. Click a node to highlight calls with the same input.`}>
       {trace.nodes.filter((node) => node.parentId).map((node) => {
         const start = layout.positions[node.parentId], end = layout.positions[node.id]
         return <path key={node.id} d={`M ${start.x} ${start.y + 20} C ${start.x} ${start.y + 55}, ${end.x} ${end.y - 45}, ${end.x} ${end.y - 20}`} className={`tree-edge ${entered.has(node.id) ? 'visited' : ''}`} />

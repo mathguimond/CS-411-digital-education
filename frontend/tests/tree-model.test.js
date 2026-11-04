@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addChild, assessCallTree, createCallTree, removeBranch, treeIsFilled, updateNode } from '../src/lessons/shared/visualizations/treeModel.js'
+import { addChild, assessCallTree, createCallTree, removeBranch, treeIsFilled, treeViewport, updateNode } from '../src/lessons/shared/visualizations/treeModel.js'
 
 function completeTree(kind, expandedBases = false) {
   let tree = createCallTree(kind)
@@ -56,4 +56,14 @@ test('removing a branch removes descendants and dragging preserves logical check
   assert.equal(tree.nodes[0].children.length, 1)
   assert.equal(assessCallTree(tree).passed, false)
   assert.equal(tree.nodes.some((node) => node.parentId === child), false)
+})
+
+test('the fixed viewport contains every node after expansion and movement', () => {
+  let tree = completeTree('stairs')
+  tree = updateNode(tree, tree.nodes.at(-1).id, { x: 1300, y: 700 })
+  const [x, y, width, height] = treeViewport(tree.nodes).split(' ').map(Number)
+  for (const node of tree.nodes) {
+    assert.ok(node.x - 72 >= x && node.x + 72 <= x + width)
+    assert.ok(node.y - 25 >= y && node.y + 25 <= y + height)
+  }
 })

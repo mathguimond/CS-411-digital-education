@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { addChild, assessCallTree, removeBranch, TREE_HEIGHT, TREE_WIDTH, updateNode } from './treeModel.js'
+import { addChild, assessCallTree, removeBranch, TREE_HEIGHT, TREE_WIDTH, treeViewport, updateNode } from './treeModel.js'
+import HintButton from '../activities/HintButton.jsx'
 
-export default function CallTreeBuilder({ tree, onChange, record, activityId, readOnly = false, assessment = false }) {
+export default function CallTreeBuilder({ tree, onChange, record, activityId, questionId, readOnly = false }) {
   const [selectedId, setSelectedId] = useState('root')
   const [feedback, setFeedback] = useState(null)
   const svg = useRef(null)
-  const scroll = useRef(null)
   const drag = useRef(null)
+  const [dragViewport, setDragViewport] = useState(null)
   const selected = tree.nodes.find((node) => node.id === selectedId) || tree.nodes[0]
   const byId = new Map(tree.nodes.map((node) => [node.id, node]))
   const functionName = tree.kind === 'grid' ? 'unique_paths' : 'climb_stairs'
 
-  useEffect(() => { scroll.current.scrollLeft = (TREE_WIDTH - scroll.current.clientWidth) / 2 }, [])
+  useEffect(() => () => { drag.current = null }, [])
+  const viewBox = dragViewport || treeViewport(tree.nodes)
 
   function change(next) { setFeedback(null); onChange?.(next) }
   function point(event) {
@@ -26,7 +28,8 @@ export default function CallTreeBuilder({ tree, onChange, record, activityId, re
     if (readOnly) return
     event.preventDefault()
     const start = point(event)
-    drag.current = { id: node.id, start, x: node.x, y: node.y, moved: false }
+    drag.current = { id: node.id, start, x: node.x, y: node.y, moved: false, viewBox }
+    setDragViewport(viewBox)
     event.currentTarget.setPointerCapture(event.pointerId)
   }
   function moveDrag(event) {
@@ -37,26 +40,27 @@ export default function CallTreeBuilder({ tree, onChange, record, activityId, re
     change(updateNode(tree, current.id, { x: Math.max(90, Math.min(TREE_WIDTH - 90, current.x + dx)), y: Math.max(35, Math.min(TREE_HEIGHT - 45, current.y + dy)) }))
   }
   function endDrag() {
-    if (drag.current?.moved) record('tree_node_moved', { activityId, nodeId: drag.current.id })
+    if (drag.current?.moved) { const node = tree.nodes.find((item) => item.id === drag.current.id); record('tree_node_moved', { activityId, nodeId: node.id, x: node.x, y: node.y }) }
     drag.current = null
+    setDragViewport(null)
   }
   function edit(changes) {
     change(updateNode(tree, selected.id, changes))
-    record('tree_node_edited', { activityId, nodeId: selected.id })
+    record('tree_node_edited', { activityId, nodeId: selected.id, changes })
   }
   function add() {
     const next = addChild(tree, selected.id)
     if (next === tree) return
     change(next)
     setSelectedId(next.nodes.at(-1).id)
-    record('tree_child_added', { activityId, parentId: selected.id })
+    record('tree_child_added', { activityId, parentId: selected.id, node: next.nodes.at(-1) })
   }
 
   return <section className="interactive-figure tree-builder" aria-label={`${functionName} call tree builder`}>
-    <div className="figure-heading"><span className="eyebrow">{readOnly ? 'Your saved call tree' : 'Construct your call tree'}</span><span className="figure-counter">{tree.nodes.length} calls</span></div>
-    <p className="small muted">{readOnly ? 'Select a call to inspect your recorded inputs and return value.' : 'Select a call, add its children, and enter their inputs and return values. Drag calls to arrange them, or select a node and use arrow keys. Scroll to explore the canvas.'}</p>
-    <div className="tree-scroll builder-canvas" ref={scroll}>
-      <svg ref={svg} viewBox={`0 0 ${TREE_WIDTH} ${TREE_HEIGHT}`} style={{ width: TREE_WIDTH, minWidth: TREE_WIDTH }} role="group" aria-label="Draggable call tree canvas">
+    <div className="figure-heading"><span className="eyebrow">{readOnly ? 'Your saved call tree' : 'Construct your call tree'}</span><span className="figure-counter">{tree.nodes.length} calls</span><HintButton questionId={questionId} /></div>
+    <p className="small muted">{readOnly ? 'Select a call to inspect your recorded inputs and return value.' : 'Select a call, add its children, and enter their inputs and return values. Drag calls to arrange them, or use arrow keys after selecting a node. The complete tree automatically fits this window.'}</p>
+    <div className="tree-scroll builder-canvas">
+      <svg ref={svg} viewBox={viewBox} preserveAspectRatio="xMidYMid meet" role="group" aria-label="Draggable call tree canvas">
         {tree.nodes.filter((node) => node.parentId).map((node) => {
           const parent = byId.get(node.parentId)
           return <path key={node.id} d={`M ${parent.x} ${parent.y + 25} L ${node.x} ${node.y - 25}`} className="tree-edge visited" />
@@ -78,7 +82,7 @@ export default function CallTreeBuilder({ tree, onChange, record, activityId, re
       <p className="small"><strong>{selected.id === 'root' ? 'Root call' : `Call ${tree.nodes.indexOf(selected) + 1}`}</strong> · {functionName}({selected.args.map((arg) => arg || '?').join(', ')})</p>
       <div className="prediction-fields">{selected.args.map((arg, index) => <div key={index}><label htmlFor={`${activityId}-arg-${index}`}>{tree.kind === 'grid' ? index === 0 ? 'Remaining rows' : 'Remaining columns' : 'Remaining stairs'}</label><input id={`${activityId}-arg-${index}`} type="number" value={arg} disabled={readOnly || selected.id === 'root'} onChange={(event) => edit({ args: selected.args.map((value, position) => position === index ? event.target.value : value) })} /></div>)}<div><label htmlFor={`${activityId}-return`}>Return value</label><input id={`${activityId}-return`} type="number" value={selected.value} disabled={readOnly} onChange={(event) => edit({ value: event.target.value })} /></div></div>
       {!readOnly && <div className="answer-actions"><button className="secondary" onClick={add} disabled={selected.children.length >= 2 || tree.nodes.length >= 63 || selected.depth >= 7}>Add child call</button><button className="text-button" disabled={selected.id === 'root'} onClick={() => { change(removeBranch(tree, selected.id)); setSelectedId('root'); record('tree_branch_removed', { activityId, nodeId: selected.id }) }}>Remove this branch</button></div>}
-      {!assessment && !readOnly && <button className="secondary tree-check" onClick={() => { const result = assessCallTree(tree); setFeedback(result); record('tree_checked', { activityId, result }) }}>Check my tree</button>}
+      {!readOnly && <button className="secondary tree-check" onClick={() => { const result = assessCallTree(tree); setFeedback(result); record('tree_checked', { activityId, result }) }}>Check my tree</button>}
       {feedback && <div className="feedback-note" role="status">{feedback.passed ? 'Your tree checks passed.' : <><strong>Revisit these calls:</strong><ul>{feedback.issues.slice(0, 5).map((issue, index) => <li key={index}>Call {tree.nodes.findIndex((node) => node.id === issue.nodeId) + 1}: {issue.message}</li>)}</ul></>}</div>}
     </div>
   </section>
