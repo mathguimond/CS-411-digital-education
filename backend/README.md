@@ -6,7 +6,7 @@ overflow connection per worker. Local development uses a gitignored SQLite file.
 The versioned migration runs locally or through `flask --app app.main db-upgrade`;
 the Heroku Procfile runs that command in its release phase.
 
-The API stores demographics, assignment, current work, every section submission,
+The API stores demographics, consent, assignment, current work, every section submission,
 events, code runs, tree edits, and full hint conversations. Participant tokens are
 256-bit random values held by the browser; only their hashes are stored. There
 are no usernames or passwords and no public results-list endpoint.
@@ -25,7 +25,12 @@ are no usernames or passwords and no public results-list endpoint.
 
 All endpoints except enrollment and health require `Authorization: Bearer TOKEN`.
 Enrollment includes a browser-generated `session_token` plus `gender`, `age`,
-`school_level`, `degree`, and `referrer`. Reusing the same token retries enrollment
+`school_level`, `degree`, and `referrer`, plus `data_consent: true` and the
+`consent_version` from `shared/study-config.json`. Consent must be the boolean
+`true`; a missing, false, or outdated consent is rejected before enrollment.
+The server stores the exact consent text, version, and acceptance timestamp in
+`participants`. The additive migration preserves existing participants and leaves
+their prior consent fields null. Reusing the same token retries enrollment
 without adding another participant. The server ignores any claimed condition.
 
 Save requests contain `id`, `revision`, `snapshot`, and up to 25 `events`.
@@ -35,13 +40,15 @@ Completion/unlocking flags are owned by checkpoints, not ordinary draft saves.
 
 Hint requests contain `id`, `activityId`, `questionId`, and optionally `message`.
 The server verifies that the question belongs to the activity and that the activity
-is unlocked. Text/MCQ questions have two replies, and code/tree questions have four.
+is unlocked. Text/MCQ questions have three replies, and code/tree questions have five.
 Follow-ups share the same budget. Requests reserve a slot while Gemini is running;
 failed provider calls do not spend it. Stored replies survive refresh or response
 loss. Fixed hints use the same budgets and contain no worked solutions.
 
-Gemini receives the selected question, current work/answers on the page, and prior
-hint conversations. Server instructions require at most two sentences, and output
+Gemini receives the selected question and current answer, work/answers on the
+page, and the full prior hint conversation. Instructions prioritize the current
+attempt while adapting to earlier difficulties and require direct, actionable
+guidance instead of questions. Replies have at most two sentences, and output
 is shortened to enforce that limit. Learner text is treated as untrusted input.
 Pre-test and final reflection have no hints; transfer supports hints and code tests.
 

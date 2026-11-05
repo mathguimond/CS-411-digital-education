@@ -210,6 +210,8 @@
 .study-login .login-radio-row { display: flex; gap: 28px; }
 .study-login .login-radio-row label { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 .study-login .login-radio-row input { cursor: pointer; }
+.study-login .login-consent { display: flex; align-items: start; gap: 10px; margin: 20px 0; font-size: .82rem; line-height: 1.6; cursor: pointer; }
+.study-login .login-consent input { flex: 0 0 auto; margin: 5px 0 0; width: 16px; height: 16px; accent-color: #315a46; cursor: pointer; }
 @media (max-width: 600px) {
   .study-login .login-card { padding: 24px 18px; margin: 28px auto; }
   .recursion-lesson .lesson-status { align-items: end; flex-direction: column; }

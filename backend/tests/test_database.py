@@ -1,5 +1,10 @@
-from sqlalchemy import inspect, text
-from app.database import Base, database_url
+from pathlib import Path
+from uuid import uuid4
+
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import MetaData, Table, inspect, select, text
+from app.database import Base, Participant, database_url, utcnow
 from study_fixture import StudyCase
 
 
@@ -21,5 +26,25 @@ class DatabaseTests(StudyCase):
         for table in Base.metadata.sorted_tables:
             self.assertEqual({column.name for column in table.columns}, {column['name'] for column in inspector.get_columns(table.name)})
         with engine.connect() as connection:
-            self.assertEqual(connection.scalar(text('select version_num from alembic_version')), '0001_study')
+            self.assertEqual(connection.scalar(text('select version_num from alembic_version')), '0002_participant_consent')
         self.assertTrue(self.client.get('/api/health').json['database_ready'])
+
+    def test_consent_migration_preserves_existing_data_without_claiming_prior_consent(self):
+        engine = self.app.extensions['study_database']
+        Base.metadata.drop_all(engine)
+        participant_id = str(uuid4())
+        config = Config(str(Path(__file__).resolve().parents[1] / 'alembic.ini'))
+        with engine.begin() as connection:
+            config.attributes['connection'] = connection
+            command.upgrade(config, '0001_study')
+            legacy = Table('participants', MetaData(), autoload_with=connection)
+            connection.execute(legacy.insert(), {'id': participant_id, 'token_hash': 'f' * 64, 'gender': 'female', 'age': '22', 'school_level': 'bachelor', 'degree': 'Existing record', 'referrer': 'jan', 'condition': 'ai', 'lesson_version': 'study-v4', 'created_at': utcnow(), 'snapshot': {'answers': {'intro-base': 'A saved explanation.'}}, 'revision': 5})
+        result = self.app.test_cli_runner().invoke(args=['db-upgrade'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        with engine.connect() as connection:
+            record = connection.execute(select(Participant).where(Participant.id == participant_id)).mappings().one()
+            self.assertEqual(record['degree'], 'Existing record')
+            self.assertEqual(record['snapshot']['answers']['intro-base'], 'A saved explanation.')
+            self.assertEqual(record['revision'], 5)
+            for field in ['consented_at', 'consent_version', 'consent_text']:
+                self.assertIsNone(record[field])

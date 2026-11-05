@@ -11,7 +11,11 @@
     {"id": "other", "label": "Other / not currently studying"}
   ],
   "referrers": [{"id": "mathieu", "label": "Mathieu"}, {"id": "jan", "label": "Jan"}, {"id": "victor", "label": "Victor"}],
+  "consent": {
+    "version": "data-sharing-v1",
+    "text": "I consent to the data collected during this lesson being shared with the Dynamic Learning study team and third-party large language model (LLM) providers for lesson support and study analysis."
+  },
   "lessonTargetMs": 1800000,
-  "hintLimits": {"text": 2, "choice": 2, "tree": 4, "code": 4},
+  "hintLimits": {"text": 3, "choice": 3, "tree": 5, "code": 5},
   "hintSentenceLimit": 2
 }

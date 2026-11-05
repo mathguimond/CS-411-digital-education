@@ -12,7 +12,10 @@ authenticated API, which owns the question limits and records every conversation
 Fixed hints live in `../shared/control-support.json`; login options, hint budgets,
 and target duration live in `../shared/study-config.json`.
 
-Every entry route leads to login until the backend assigns a lesson. A browser
+Every entry route leads to login until the backend assigns a lesson. Enrollment
+requires an initially unchecked data-sharing consent box; its wording/version
+comes from the shared study config and the backend records the acceptance.
+A browser
 token and local retry queue preserve progress across refreshes. The database is
 authoritative for assignment, submitted progress, start/stop times, and hint use.
 The pre-test starts the elapsed-time clock; transfer submission stops it before

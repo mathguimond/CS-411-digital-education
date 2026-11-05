@@ -53,7 +53,7 @@ def overtime():
 def records():
     with transaction() as db:
         participant = participant_for(db)
-        return jsonify(condition=participant.condition, referrer=participant.referrer, gender=participant.gender, age=participant.age, degree=participant.degree, snapshot=participant.snapshot,
+        return jsonify(condition=participant.condition, referrer=participant.referrer, gender=participant.gender, age=participant.age, degree=participant.degree, consentVersion=participant.consent_version, consentText=participant.consent_text, consentedAt=participant.consented_at.isoformat() if participant.consented_at else None, snapshot=participant.snapshot,
             submissions=[{'activityId': row.activity_id, 'elapsedMs': row.elapsed_ms, 'payload': row.payload} for row in db.scalars(select(ActivitySubmission).where(ActivitySubmission.participant_id == participant.id).order_by(ActivitySubmission.submitted_at))],
             events=[row.details for row in db.scalars(select(StudyEvent).where(StudyEvent.participant_id == participant.id))],
             hints=[{'questionId': row.question_id, 'reply': row.reply, 'message': row.message, 'context': row.context, 'model': row.model, 'status': row.status} for row in db.scalars(select(HintTurn).where(HintTurn.participant_id == participant.id).order_by(HintTurn.created_at))])

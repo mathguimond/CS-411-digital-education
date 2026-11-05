@@ -18,6 +18,7 @@ def hint_context(snapshot, activity, question_id):
     tree_key = activity.get("tree")
     context = {
         "selected_question": {key: value for key, value in question.items() if key != "correct"},
+        "current_answer": str(snapshot.get("answers", {}).get(question_id, ""))[:4000] if question["kind"] in {"text", "choice"} else None,
         "activity": activity["title"],
         "answers_on_page": {key: str(snapshot.get("answers", {}).get(key, ""))[:350] for key in activity["fields"]},
         "code": snapshot.get("code", {}).get(code_key, "")[:2600] if code_key else None,

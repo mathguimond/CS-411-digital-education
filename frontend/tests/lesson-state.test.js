@@ -41,6 +41,9 @@ test('baseline stays locked and transfer activities can be revisited', () => {
 })
 
 test('zero is a valid survey rating and event/history data use their separate database records', () => {
+  assert.ok(lesson.activities[5][0].fields.includes('lesson-format'))
+  assert.equal(hasResponse(lesson.questions['lesson-format'], {}), false)
+  assert.equal(hasResponse(lesson.questions['lesson-format'], { 'lesson-format': 'Call trees made the waiting calls visible.' }), true)
   assert.equal(hasResponse(lesson.questions['hint-helpfulness'], { 'hint-helpfulness': 0 }), true)
   assert.equal(hasResponse(lesson.questions['hint-helpfulness'], {}), false)
   const snapshot = snapshotForSave(createLessonSession(lesson.version))

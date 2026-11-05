@@ -70,6 +70,10 @@ def enroll(payload):
     if not isinstance(payload, dict):
         raise StudyError("Send the participant details as JSON.")
     digest = token_hash(payload.get("session_token"))
+    if payload.get("data_consent") is not True:
+        raise StudyError("Please give your consent to data sharing before continuing.", 400, "consent_required")
+    if payload.get("consent_version") != STUDY["consent"]["version"]:
+        raise StudyError("The consent wording has changed. Refresh the login page and review it before continuing.", 400, "consent_version_mismatch")
     values = {key: payload.get(key) for key in ("gender", "age", "school_level", "degree", "referrer")}
     ages = {str(age) for age in range(STUDY["minimumAge"], STUDY["maximumIndividualAge"] + 1)} | {STUDY["olderAgeOption"]}
     for field, options in (("gender", {item["id"] for item in STUDY["gender"]}), ("age", ages), ("school_level", {item["id"] for item in STUDY["schoolLevels"]}), ("referrer", {item["id"] for item in STUDY["referrers"]})):
@@ -91,7 +95,7 @@ def enroll(payload):
         group = counts["referrers"].setdefault(values["referrer"], {"ai": 0, "control": 0})
         group[condition] += 1
         counter.counts = counts
-        participant = Participant(id=str(uuid4()), token_hash=digest, **values, condition=condition, lesson_version=LESSON["version"], snapshot={}, revision=0)
+        participant = Participant(id=str(uuid4()), token_hash=digest, **values, condition=condition, lesson_version=LESSON["version"], consented_at=utcnow(), consent_version=STUDY["consent"]["version"], consent_text=STUDY["consent"]["text"], snapshot={}, revision=0)
         db.add(participant)
         db.flush()
         return session_payload(db, participant), True

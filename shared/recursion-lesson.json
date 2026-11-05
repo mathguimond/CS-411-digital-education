@@ -471,6 +471,11 @@
       "kind": "text",
       "prompt": "How did you feel going through this lesson?"
     },
+    "lesson-format": {
+      "id": "lesson-format",
+      "kind": "text",
+      "prompt": "What did you like or dislike about the lesson format? Which activity types—multiple-choice questions, open questions, call trees, or coding—had the greatest impact on your learning, and why?"
+    },
     "recursion-after": {
       "id": "recursion-after",
       "kind": "text",
@@ -596,6 +601,7 @@
         "fields": [
           "hint-helpfulness",
           "lesson-experience",
+          "lesson-format",
           "recursion-after"
         ]
       }

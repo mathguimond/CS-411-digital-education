@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from app.main import create_app
-from app.curriculum import LESSON, QUESTIONS
+from app.curriculum import LESSON, QUESTIONS, STUDY
 from app.database import database_url
 
 
@@ -41,7 +41,7 @@ class StudyCase(unittest.TestCase):
         self.client = self.app.test_client()
         self.token = "a" * 64
         self.headers = {"Authorization": "Bearer " + self.token}
-        self.details = {"session_token": self.token, "gender": "female", "age": "22", "school_level": "bachelor", "degree": "Computer Science", "referrer": "jan"}
+        self.details = {"session_token": self.token, "gender": "female", "age": "22", "school_level": "bachelor", "degree": "Computer Science", "referrer": "jan", "data_consent": True, "consent_version": STUDY["consent"]["version"]}
         self.remote = None
         self.state = None
 

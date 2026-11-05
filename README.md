@@ -8,6 +8,10 @@ curriculum, activity implementation, Python runtime, and visual design.
 
 Participants enter through `#/login`, including when they open a lesson link
 directly. They provide gender, age, school level, degree/program, and recruiter.
+An unchecked, required consent box explains sharing lesson data with the Dynamic
+Learning study team and third-party LLM providers for lesson support and analysis.
+The API requires explicit consent to the current wording before enrollment and
+stores its text, version, and server timestamp with the participant.
 There is no username or password. A random browser token resumes their assigned
 lesson after refresh; the database stores only its hash.
 
@@ -33,7 +37,7 @@ final rating and reflection questions.
 | Build & trace | Construct `climb_stairs(4)` first, explain suitability/recurrence, write and test Python, choose maximum stack depth |
 | Optimize | Worked Fibonacci cache example, two redundancy MCQs, refactor own stairs code, one MCQ about the main change |
 | Transfer | Three design MCQs, `unique_paths(2,2)` tree before code, visible tests, then memoize a copy of the naive code |
-| Reflect | Hint helpfulness 0–10, experience with the assigned hint system, own definition of recursion |
+| Reflect | Hint helpfulness 0–10, experience with the assigned hint system, likes/dislikes and impact of each activity format, own definition of recursion |
 
 Tree completeness never blocks progression. Coding activities require a code run,
 without requiring correctness. Transfer activities can be revisited before final
@@ -41,11 +45,13 @@ submission; optimized code is retained when returning to earlier transfer work.
 Trees fit a fixed viewport; students can still arrange their own nodes.
 
 Each question's lightbulb requests a targeted hint. Text and MCQ questions allow
-**two replies**; tree and code questions allow **four**. Follow-ups count toward
+**three replies**; tree and code questions allow **five**. Follow-ups count toward
 the same question budget. The database enforces limits across refreshes and
 simultaneous requests. Both hint types use at most two sentences and have no
-worked solutions. AI receives the selected question, work on the page, and prior
-hint conversations. Pre-test and final reflection have no hints; transfer does.
+worked solutions. AI receives the selected question, its current answer, work on
+the page, and prior hint conversations. Its instructions prioritize the current
+attempt, adapt to earlier difficulties, and give direct guidance rather than
+questions. Pre-test and final reflection have no hints; transfer does.
 
 ## Code ownership
 
@@ -138,7 +144,7 @@ and [release-phase migrations](https://devcenter.heroku.com/articles/release-pha
 
 | Table | Contents |
 | --- | --- |
-| `participants` | Demographics, recruiter, assigned condition, curriculum version, hashed resume token, canonical start/stop/completion times, latest state |
+| `participants` | Demographics, recruiter, consent wording/version/timestamp, assigned condition, curriculum version, hashed resume token, canonical start/stop/completion times, latest state |
 | `activity_submissions` | Each Continue submission, full response/code/tree snapshot, accepted timestamp, elapsed milliseconds |
 | `study_events` | Answer/code changes, tree edits, code runs/results, navigation, active-time and interaction events; client and server timing |
 | `hint_turns` | Question/activity, request, reply, exact learner context, provider/support version, status, and elapsed time |
@@ -157,6 +163,10 @@ Continue waits for a durable checkpoint; refresh retries the same pending reques
 Conflicting tabs preserve the unsaved draft and request a reload rather than
 silently overwriting newer work. There is no public endpoint listing study results;
 organizers access them through their authorized database connection.
+
+The consent migration adds nullable `consented_at`, `consent_version`, and
+`consent_text` columns. Earlier participant records remain intact; their consent
+fields are not backfilled with consent that was never collected.
 
 ## Validation
 

@@ -8,6 +8,7 @@ import httpx
 from google.genai import errors, types
 from sqlalchemy import func, select
 
+from app.curriculum import STUDY
 from app.database import ActivitySubmission, AssignmentState, HintTurn, Participant, StudyEvent, transaction, utcnow
 from app.services.tutor import TutorDisabled, TutorUnavailable, generate_reply, limit_sentences
 from app.services.study import assign_condition
@@ -15,6 +16,20 @@ from study_fixture import StudyCase
 
 
 class EnrollmentTests(StudyCase):
+    def test_explicit_current_consent_is_required_before_any_data_is_saved(self):
+        for consent in [None, False, 1, 'true']:
+            response = self.client.post('/api/study/enroll', json={**self.details, 'data_consent': consent})
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json['error_code'], 'consent_required')
+        for version in [None, 'outdated']:
+            response = self.client.post('/api/study/enroll', json={**self.details, 'consent_version': version})
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json['error_code'], 'consent_version_mismatch')
+        with self.app.app_context(), transaction() as db:
+            self.assertEqual(db.scalar(select(func.count()).select_from(Participant)), 0)
+            self.assertEqual(db.get(AssignmentState, 1).counts['ai'], 0)
+            self.assertEqual(db.get(AssignmentState, 1).counts['control'], 0)
+
     def test_recruiter_balance_breaks_global_ties_but_never_overrides_global_balance(self):
         counts = {'ai': 5, 'control': 5, 'referrers': {'jan': {'ai': 4, 'control': 1}}}
         self.assertEqual(assign_condition(counts, 'jan'), 'control')
@@ -40,6 +55,13 @@ class EnrollmentTests(StudyCase):
             participant = db.scalar(select(Participant))
             self.assertNotEqual(participant.token_hash, self.token)
             self.assertEqual(participant.degree, 'Computer Science')
+            self.assertIsNotNone(participant.consented_at)
+            self.assertEqual(participant.consent_version, STUDY['consent']['version'])
+            self.assertEqual(participant.consent_text, STUDY['consent']['text'])
+            consented_at = participant.consented_at
+        self.client.post('/api/study/enroll', json=self.details)
+        with self.app.app_context(), transaction() as db:
+            self.assertEqual(db.scalar(select(Participant)).consented_at, consented_at)
 
     def test_overall_balance_is_atomic_and_recruiters_break_ties(self):
         def enroll_one(index):
@@ -142,6 +164,18 @@ class PersistenceTests(StudyCase):
         self.assertTrue(self.state['surveySubmitted'])
         self.assertEqual(self.hint().status_code, 403)
 
+    def test_new_format_reflection_is_required_and_saved_with_the_final_submission(self):
+        self.advance_to('post-survey')
+        self.state['answers'].update({'hint-helpfulness': 7, 'lesson-experience': 'The hints were useful.', 'recursion-after': 'Solving smaller instances of a task.'})
+        self.assertEqual(self.submit('post-survey', fill=False).status_code, 400)
+        self.state['answers']['lesson-format'] = 'Call trees helped most; I liked seeing calls connect, but coding felt harder.'
+        self.assertEqual(self.submit('post-survey', fill=False).status_code, 200)
+        restored = self.client.get('/api/study/session', headers=self.headers).json
+        self.assertEqual(restored['snapshot']['answers']['lesson-format'], self.state['answers']['lesson-format'])
+        with self.app.app_context(), transaction() as db:
+            submission = db.scalar(select(ActivitySubmission).where(ActivitySubmission.activity_id == 'post-survey'))
+            self.assertEqual(submission.payload['answers']['lesson-format'], self.state['answers']['lesson-format'])
+
 
 class HintTests(StudyCase):
     def setUp(self):
@@ -152,26 +186,32 @@ class HintTests(StudyCase):
         request_id = str(uuid4())
         first = self.hint(request_id=request_id)
         self.assertEqual(first.status_code, 200, first.json)
-        self.assertEqual(first.json['remaining'], 1)
+        self.assertEqual(first.json['remaining'], 2)
         self.assertEqual(first.json['reply'], 'Inspect the smallest input. Follow the returned result.')
-        self.assertEqual(self.hint(request_id=request_id).json['remaining'], 1)
-        self.assertEqual(self.hint(message='What does that mean?').json['remaining'], 0)
-        self.assertEqual(self.client.get('/api/study/session', headers=self.headers).json['hintUsage']['intro-base'], 2)
+        self.assertEqual(self.hint(request_id=request_id).json['remaining'], 2)
+        self.assertEqual(self.hint(message='What does that mean?').json['remaining'], 1)
+        self.assertEqual(self.hint(message='Can you clarify that hint?').json['remaining'], 0)
+        self.assertEqual(self.client.get('/api/study/session', headers=self.headers).json['hintUsage']['intro-base'], 3)
         self.assertEqual(self.hint().status_code, 409)
-        self.assertEqual(model.call_count, 2)
+        self.assertEqual(model.call_count, 3)
         self.assertEqual(self.hint('intro-reduction').status_code, 200)
 
     @patch('app.services.hints.generate_reply', return_value='Trace a smaller input. Compare the pending frame.')
     def test_model_receives_question_previous_answers_and_prior_conversation(self, model):
         self.state['answers']['intro-base'] = 'My earlier explanation.'
+        self.state['answers']['intro-stack'] = 'my-current-choice'
         self.assertEqual(self.save().status_code, 200)
         self.hint()
         self.hint('intro-stack')
         args = model.call_args
         context = json.loads(args.kwargs['learner_context'])
         self.assertEqual(context['selected_question']['id'], 'intro-stack')
+        self.assertEqual(context['current_answer'], 'my-current-choice')
+        self.assertNotIn('correct', context['selected_question'])
         self.assertEqual(context['answers_on_page']['intro-base'], 'My earlier explanation.')
         self.assertEqual(len(args.args[2]), 2)
+        self.assertIn('My earlier', json.loads(model.call_args_list[0].kwargs['learner_context'])['current_answer'])
+        self.assertIn('Trace a smaller input.', args.args[2][1]['content'])
         with self.app.app_context(), transaction() as db:
             turn = db.scalar(select(HintTurn).where(HintTurn.question_id == 'intro-stack'))
             self.assertEqual(turn.context['answers_on_page']['intro-base'], 'My earlier explanation.')
@@ -185,15 +225,31 @@ class HintTests(StudyCase):
         self.assertEqual(self.client.get('/api/study/session', headers=self.headers).json['hintUsage'], {})
 
     @patch('app.services.hints.generate_reply', return_value='Inspect the smaller state.')
-    def test_four_code_hints_and_transfer_help(self, model):
+    def test_five_code_hints_and_transfer_help(self, model):
         self.advance_to('grid-build')
         self.save()
-        for expected in [3, 2, 1, 0]:
+        for expected in [4, 3, 2, 1, 0]:
             response = self.hint('grid-code', 'grid-build')
             self.assertEqual(response.status_code, 200, response.json)
             self.assertEqual(response.json['remaining'], expected)
         self.assertEqual(self.hint('grid-code', 'grid-build').status_code, 409)
-        self.assertEqual(model.call_count, 4)
+        self.assertEqual(model.call_count, 5)
+
+    @patch('app.services.hints.generate_reply')
+    def test_control_choices_and_trees_offer_the_full_new_budgets(self, model):
+        with self.app.app_context(), transaction(write=True) as db:
+            db.get(Participant, self.remote['participant']['id']).condition = 'control'
+        self.state['condition'] = 'control'
+        for question_id, activity_id, limit in [('intro-stack', 'recursion-components', 3), ('stairs-tree', 'stairs-build', 5)]:
+            if activity_id == 'stairs-build':
+                self.advance_to(activity_id)
+            for remaining in reversed(range(limit)):
+                response = self.hint(question_id, activity_id)
+                self.assertEqual(response.status_code, 200, response.json)
+                self.assertEqual(response.json['remaining'], remaining)
+                self.assertEqual(response.json['reply'], limit_sentences(response.json['reply']))
+            self.assertEqual(self.hint(question_id, activity_id).status_code, 409)
+        model.assert_not_called()
 
     @patch('app.services.hints.generate_reply', return_value='Inspect the smaller state.')
     def test_simultaneous_requests_cannot_exceed_the_hint_budget(self, model):
@@ -203,18 +259,19 @@ class HintTests(StudyCase):
                 return response.status_code
         with ThreadPoolExecutor(max_workers=6) as executor:
             statuses = list(executor.map(ask, range(12)))
-        self.assertEqual(statuses.count(200), 2)
-        self.assertEqual(statuses.count(409), 10)
-        self.assertEqual(model.call_count, 2)
+        self.assertEqual(statuses.count(200), 3)
+        self.assertEqual(statuses.count(409), 9)
+        self.assertEqual(model.call_count, 3)
 
     @patch('app.services.hints.generate_reply', return_value='Inspect the smaller state.')
     def test_abandoned_hint_reservations_expire_without_spending_the_budget(self, model):
         with self.app.app_context(), transaction(write=True) as db:
             db.add(HintTurn(id=str(uuid4()), participant_id=self.remote['participant']['id'], question_id='intro-base', activity_id='recursion-components', status='pending', message='Interrupted request', created_at=utcnow() - timedelta(minutes=2), context={}))
         self.assertEqual(self.client.get('/api/study/session', headers=self.headers).json['hintUsage'], {})
+        self.assertEqual(self.hint().json['remaining'], 2)
         self.assertEqual(self.hint().json['remaining'], 1)
         self.assertEqual(self.hint().json['remaining'], 0)
-        self.assertEqual(model.call_count, 2)
+        self.assertEqual(model.call_count, 3)
 
     @patch('app.services.hints.generate_reply')
     def test_no_pretest_or_survey_help_and_control_cannot_call_ai_endpoint(self, model):
@@ -237,6 +294,9 @@ class GeminiTests(StudyCase):
         arguments = client.return_value.__enter__.return_value.models.generate_content.call_args.kwargs
         self.assertIn('at most TWO', arguments['config'].system_instruction)
         self.assertIn('Never provide the final answer', arguments['config'].system_instruction)
+        self.assertIn('direct, actionable guidance, never as\nquestions', arguments['config'].system_instruction)
+        self.assertIn('prioritizing the selected question', arguments['config'].system_instruction)
+        self.assertIn('difficulties\nvisible in the full conversation history', arguments['config'].system_instruction)
         self.assertEqual([item.role for item in arguments['contents']], ['user', 'model', 'user'])
         self.assertIn('Current answer', arguments['contents'][-1].parts[0].text)
         self.assertEqual(client.call_args.kwargs['http_options'].timeout, 20000)
